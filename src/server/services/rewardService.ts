@@ -8,6 +8,7 @@ import {
 import {
   applySignalEvent,
   clampSignalScore,
+  isRateLimited,
 } from "@/domain/rewards/signalScore";
 import { db } from "@/server/db";
 
@@ -186,3 +187,98 @@ export async function penaliseNoise(userId: string): Promise<void> {
 }
 
 export { clampSignalScore };
+
+export interface TesterSummary {
+  readonly balance: number;
+  readonly signalScore: number;
+  readonly rateLimited: boolean;
+  readonly entries: readonly {
+    readonly id: string;
+    readonly amount: number;
+    readonly reason: string;
+    readonly issueTitle: string | null;
+    readonly campaignTitle: string;
+    readonly createdAt: Date;
+  }[];
+  readonly signatures: readonly {
+    readonly campaignTitle: string;
+    readonly typedName: string;
+    readonly signedAt: Date;
+    readonly ndaBodyHash: string;
+  }[];
+  readonly reportCount: number;
+  readonly issuesFound: number;
+}
+
+/**
+ * Everything a tester is owed and everything they have signed.
+ *
+ * The NDA record is here because a tester agreed to something and is entitled
+ * to see exactly what, when, and under whose name (§6.3) -- an agreement they
+ * cannot re-read is not one they can be held to.
+ */
+export async function getTesterSummary(userId: string): Promise<TesterSummary> {
+  const [user, entries, signatures, reportCount, issuesFound] =
+    await Promise.all([
+      db.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: { signalScore: true },
+      }),
+      db.ledgerEntry.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      db.ndaSignature.findMany({
+        where: { userId },
+        orderBy: { signedAt: "desc" },
+        include: { campaign: { select: { title: true } } },
+      }),
+      db.report.count({ where: { reporterId: userId } }),
+      db.issue.count({
+        where: { firstReporterId: userId, status: "VERIFIED" },
+      }),
+    ]);
+
+  const campaignIds = [...new Set(entries.map((e) => e.campaignId))];
+  const issueIds = entries
+    .map((e) => e.issueId)
+    .filter((id): id is string => id !== null);
+
+  const [campaigns, issues] = await Promise.all([
+    db.campaign.findMany({
+      where: { id: { in: campaignIds } },
+      select: { id: true, title: true },
+    }),
+    db.issue.findMany({
+      where: { id: { in: issueIds } },
+      select: { id: true, title: true },
+    }),
+  ]);
+
+  const campaignTitle = new Map(campaigns.map((c) => [c.id, c.title]));
+  const issueTitle = new Map(issues.map((i) => [i.id, i.title]));
+
+  return {
+    balance: await balanceFor(userId),
+    signalScore: user.signalScore,
+    rateLimited: isRateLimited(user.signalScore),
+    entries: entries.map((entry) => ({
+      id: entry.id,
+      amount: entry.amount,
+      reason: entry.reason,
+      issueTitle:
+        entry.issueId === null ? null : (issueTitle.get(entry.issueId) ?? null),
+      campaignTitle: campaignTitle.get(entry.campaignId) ?? "A campaign",
+      createdAt: entry.createdAt,
+    })),
+    signatures: signatures.map((signature) => ({
+      campaignTitle: signature.campaign.title,
+      typedName: signature.typedName,
+      signedAt: signature.signedAt,
+      ndaBodyHash: signature.ndaBodyHash,
+    })),
+    reportCount,
+    issuesFound,
+  };
+}
