@@ -7,12 +7,36 @@ import {
 } from "@/server/services/authService";
 import { createSessionToken, setSessionCookie } from "@/server/session";
 
+import { rateLimit } from "@/server/security/rateLimiter";
+
 const loginSchema = z.object({
   email: z.string().email().max(255),
   password: z.string().min(1).max(100),
 });
 
 export async function POST(request: Request): Promise<NextResponse> {
+  const clientIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    request.headers.get("x-real-ip") ??
+    "127.0.0.1";
+
+  const limitCheck = rateLimit(`login:${clientIp}`, 10, 0.2);
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: "rate_limit_exceeded",
+        message: "Too many login attempts. Please wait before trying again.",
+        retryAfterSec: limitCheck.retryAfterSec,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(limitCheck.retryAfterSec),
+        },
+      },
+    );
+  }
+
   let payload: unknown;
   try {
     payload = await request.json();

@@ -52,7 +52,31 @@ const ingestBody = z.object({
   clientReportId: z.string().min(1).max(200).optional(),
 });
 
+import { rateLimit } from "@/server/security/rateLimiter";
+
 export async function POST(request: Request): Promise<NextResponse> {
+  const clientIp =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    request.headers.get("x-real-ip") ??
+    "127.0.0.1";
+
+  const limitCheck = rateLimit(`ingest:${clientIp}`, 60, 1.0);
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      {
+        error: "rate_limit_exceeded",
+        message: "Too many bug reports filed in a short period. Please wait a moment.",
+        retryAfterSec: limitCheck.retryAfterSec,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(limitCheck.retryAfterSec),
+        },
+      },
+    );
+  }
+
   let payload: unknown;
   try {
     payload = await request.json();
