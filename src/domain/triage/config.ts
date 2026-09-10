@@ -46,12 +46,47 @@ export const NOISE_MIN_LENGTH = 12;
 /** A tester repeating themselves byte-for-byte inside this window is noise. */
 export const DUPLICATE_WINDOW_MS = 60_000;
 
-/** Occurrence counts at which severity escalates. See SPEC.md §5.5. */
-export const SEVERITY_THRESHOLDS = {
-  critical: 15,
-  high: 8,
-  medium: 3,
+/**
+ * Severity is impact times spread, not spread alone (SPEC.md §5.5).
+ *
+ * A single crash that ends the session is CRITICAL. A cosmetic font
+ * complaint reported two hundred times is not: frequency measures how
+ * widespread an impact is, not whether there is one. So the rules combine a
+ * category and keyword judgement about impact with a *share* of the
+ * campaign's reports, never a raw count.
+ *
+ * Share rather than count is what makes these numbers survive a change of
+ * scale. The earlier absolute thresholds (15 / 8 / 3) were calibrated against
+ * a 40-report fixture; at 400 reports every issue crossed 15 and the whole
+ * board turned CRITICAL, which costs the vermilion its meaning.
+ *
+ * The shares themselves have to be read against the *average* issue share,
+ * which is 1/issueCount -- about 7% for a campaign that collapses to fourteen
+ * issues. A CRITICAL threshold of 6% would therefore sit below average and
+ * mark most of the board critical by construction, which is exactly what the
+ * first calibration run did: 9 of 14 issues CRITICAL and not one HIGH,
+ * because everything that should have been HIGH cleared 6% instead. These
+ * values sit at roughly 1.7x, 1.1x and 0.3x the average share, which puts two
+ * issues in red on the seed corpus rather than nine.
+ */
+export const SEVERITY_SHARES = {
+  /** Any issue this widespread is critical whatever its category. */
+  critical: 0.12,
+  /** A progression blocker needs far less reach to be critical. */
+  criticalBlocking: 0.06,
+  high: 0.075,
+  medium: 0.02,
 } as const;
+
+/**
+ * Denominator floor for the share calculation.
+ *
+ * A campaign that has received eight reports is not evidence that anything is
+ * widespread. Without this floor the first report into a fresh campaign has a
+ * share of 1.0 and every new issue opens CRITICAL, so a studio's first
+ * morning of testing would show nothing but red.
+ */
+export const SEVERITY_MIN_CAMPAIGN = 50;
 
 /**
  * A small English stopword list. Deliberately small: an aggressive list starts

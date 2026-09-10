@@ -53,6 +53,43 @@ function allReports(state: TriageState): PreparedReport[] {
   return state.issues.flatMap((issue) => issue.reports);
 }
 
+/**
+ * Every report the campaign has received, including the ones held as possible
+ * duplicates and the ones set aside as noise. Severity is a share of this, and
+ * a tester whose report was filtered still filed it.
+ */
+function campaignSize(state: TriageState): number {
+  return (
+    state.noise.length +
+    state.issues.reduce(
+      (total, issue) =>
+        total + issue.reports.length + issue.possibleDuplicates.length,
+      0,
+    )
+  );
+}
+
+/**
+ * Severity is a share of the campaign, so every issue's severity moves when
+ * the campaign grows -- not only the one that just gained a report. Left
+ * unrecomputed, an issue that opened at 6% of a young campaign would still
+ * read CRITICAL after four hundred more reports made it 1%.
+ */
+function recomputeSeverities(
+  issues: readonly Issue[],
+  campaignReportCount: number,
+): Issue[] {
+  return issues.map((issue) => ({
+    ...issue,
+    severity: severityFor({
+      category: issue.category,
+      occurrenceCount: issue.reports.length,
+      campaignReportCount,
+      normalisedBodies: issue.reports.map((report) => report.normalisedBody),
+    }),
+  }));
+}
+
 function prepare(incoming: IncomingReport, state: TriageState): PreparedReport {
   const normalisedBody = normalise(incoming.body);
   const tokens = tokenise(incoming.body);
@@ -124,6 +161,7 @@ function rebuild(
   id: string,
   reports: readonly PreparedReport[],
   possibleDuplicates: readonly PreparedReport[],
+  campaignReportCount: number,
 ): Issue {
   const first = reports[0];
   const category = modalCategory(reports);
@@ -135,6 +173,7 @@ function rebuild(
     severity: severityFor({
       category,
       occurrenceCount: reports.length,
+      campaignReportCount,
       normalisedBodies: reports.map((report) => report.normalisedBody),
     }),
     firstReporterId: first.reporterId,
@@ -202,28 +241,42 @@ export function ingest(
 
   const decision = decide(scored, thresholds);
 
+  const campaignReportCount = campaignSize(state) + 1;
+
   const issues = state.issues.map((issue) => {
     if (decision.kind === "attach" && decision.issueId === issue.id) {
       return rebuild(
         issue.id,
         [...issue.reports, report],
         issue.possibleDuplicates,
+        campaignReportCount,
       );
     }
     if (decision.kind === "possible" && decision.issueId === issue.id) {
-      return rebuild(issue.id, issue.reports, [
-        ...issue.possibleDuplicates,
-        report,
-      ]);
+      return rebuild(
+        issue.id,
+        issue.reports,
+        [...issue.possibleDuplicates, report],
+        campaignReportCount,
+      );
     }
     return issue;
   });
 
   if (decision.kind === "new") {
-    issues.push(rebuild(`issue:${report.id}`, [report], []));
+    issues.push(
+      rebuild(`issue:${report.id}`, [report], [], campaignReportCount),
+    );
   }
 
-  return { state: { ...state, issues }, report, decision };
+  return {
+    state: {
+      ...state,
+      issues: recomputeSeverities(issues, campaignReportCount),
+    },
+    report,
+    decision,
+  };
 }
 
 /** Fold a batch through the same path a live report takes. */
