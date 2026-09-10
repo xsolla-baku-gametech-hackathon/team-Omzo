@@ -1,0 +1,24 @@
+# Postgres only. Everything else runs on the host so the app can be started
+# with the Wi-Fi off (see SPEC.md §0, rule 2).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: repro-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: repro
+      POSTGRES_PASSWORD: repro
+      POSTGRES_DB: repro
+    ports:
+      # Host 5433 deliberately, to avoid colliding with a local 5432.
+      - "5433:5432"
+    volumes:
+      - repro-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U repro -d repro"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  repro-pgdata:
