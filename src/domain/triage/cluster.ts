@@ -4,7 +4,8 @@ import { tokenise, normalise } from "./normalise";
 import { logSignature } from "./signature";
 import { severityFor } from "./severity";
 import { decide, scoreAgainst } from "./similarity";
-import type { IssueProfile, ScoredIssue } from "./similarity";
+import type { IssueProfile, ScoredIssue, Thresholds } from "./similarity";
+import { DEFAULT_THRESHOLDS } from "./similarity";
 import { modalBucket, modalScene } from "./state";
 import { buildCorpus, centroid, vectorise } from "./tfidf";
 import type { Vector } from "./tfidf";
@@ -72,6 +73,7 @@ function prepare(incoming: IncomingReport, state: TriageState): PreparedReport {
       normalisedBody,
       tokens,
       signature,
+      scene: incoming.gameState.scene,
       createdAt: incoming.createdAt,
       priorFromSameReporter,
     }),
@@ -171,6 +173,7 @@ function profileOf(
 export function ingest(
   state: TriageState,
   incoming: IncomingReport,
+  thresholds: Thresholds = DEFAULT_THRESHOLDS,
 ): IngestResult {
   const report = prepare(incoming, state);
 
@@ -197,7 +200,7 @@ export function ingest(
     score: scoreAgainst(report, reportVector, profileOf(issue, vectorFor)),
   }));
 
-  const decision = decide(scored);
+  const decision = decide(scored, thresholds);
 
   const issues = state.issues.map((issue) => {
     if (decision.kind === "attach" && decision.issueId === issue.id) {
@@ -224,9 +227,12 @@ export function ingest(
 }
 
 /** Fold a batch through the same path a live report takes. */
-export function triageAll(reports: readonly IncomingReport[]): TriageState {
+export function triageAll(
+  reports: readonly IncomingReport[],
+  thresholds: Thresholds = DEFAULT_THRESHOLDS,
+): TriageState {
   return reports.reduce<TriageState>(
-    (state, report) => ingest(state, report).state,
+    (state, report) => ingest(state, report, thresholds).state,
     emptyState,
   );
 }

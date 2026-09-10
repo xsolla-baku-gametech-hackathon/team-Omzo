@@ -120,7 +120,20 @@ export interface ScoredIssue {
  * that double-counts is worse than one that undercounts, because the board
  * sorts on it.
  */
-export function decide(scored: readonly ScoredIssue[]): Decision {
+export interface Thresholds {
+  readonly attach: number;
+  readonly possible: number;
+}
+
+export const DEFAULT_THRESHOLDS: Thresholds = {
+  attach: THRESHOLD_ATTACH,
+  possible: THRESHOLD_POSSIBLE,
+};
+
+export function decide(
+  scored: readonly ScoredIssue[],
+  thresholds: Thresholds = DEFAULT_THRESHOLDS,
+): Decision {
   if (scored.length === 0) return { kind: "new" };
 
   const best = [...scored].sort(
@@ -128,10 +141,10 @@ export function decide(scored: readonly ScoredIssue[]): Decision {
       b.score.combined - a.score.combined || a.issueId.localeCompare(b.issueId),
   )[0];
 
-  if (best.score.combined >= THRESHOLD_ATTACH) {
+  if (best.score.combined >= thresholds.attach) {
     return { kind: "attach", issueId: best.issueId, score: best.score };
   }
-  if (best.score.combined >= THRESHOLD_POSSIBLE) {
+  if (best.score.combined >= thresholds.possible) {
     return { kind: "possible", issueId: best.issueId, score: best.score };
   }
   return { kind: "new" };
