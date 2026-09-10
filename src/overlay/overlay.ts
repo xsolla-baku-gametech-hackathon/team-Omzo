@@ -121,6 +121,24 @@ function findCanvas(): HTMLCanvasElement | null {
   );
 }
 
+/**
+ * V2 dark palette — inlined because the overlay runs in the host game's
+ * document context and cannot read CSS variables from the Repro stylesheet.
+ * When tokens.css changes, update these constants to match.
+ *
+ * Source: src/styles/tokens.css (UI_SPEC_V2_DARK.md §1)
+ */
+const OV = {
+  bg:       "#0F0E15",  /* --surface-raised  */
+  bgInput:  "#08070C",  /* --surface-page    */
+  border:   "rgba(255,255,255,0.10)", /* --line-medium  */
+  ink:      "#EDEBF2",  /* --ink-primary     */
+  inkMuted: "#A19DB0",  /* --ink-secondary   */
+  accent:   "#8B5CF6",  /* --accent          */
+  accentFg: "#EDEBF2",  /* --accent-on-fill  */
+  shadow:   "0 8px 32px rgba(0,0,0,0.55)",
+} as const;
+
 function createOverlay(): HTMLDivElement {
   const el = document.createElement("div");
   el.id = "repro-overlay";
@@ -132,40 +150,40 @@ function createOverlay(): HTMLDivElement {
     z-index: 999999;
     width: 420px;
     max-width: 92vw;
-    background: #f1f3f2;
-    border: 1px solid #d5dad8;
-    border-radius: 4px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    background: ${OV.bg};
+    border: 1px solid ${OV.border};
+    border-radius: 6px;
+    box-shadow: ${OV.shadow};
     font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-    color: #141a18;
+    color: ${OV.ink};
     padding: 0;
     display: none;
   `;
 
   el.innerHTML = `
-    <div style="padding: 16px 20px; border-bottom: 1px solid #d5dad8; display: flex; align-items: center; justify-content: space-between;">
+    <div style="padding: 16px 20px; border-bottom: 1px solid ${OV.border}; display: flex; align-items: center; justify-content: space-between;">
       <span style="font-size: 14px; font-weight: 600; letter-spacing: -0.01em;">Report a Bug</span>
-      <button id="repro-close" type="button" style="background: none; border: none; cursor: pointer; font-size: 18px; color: #6e7b77; line-height: 1; padding: 2px 6px;">✕</button>
+      <button id="repro-close" type="button" style="background: none; border: none; cursor: pointer; font-size: 18px; color: ${OV.inkMuted}; line-height: 1; padding: 2px 6px;">✕</button>
     </div>
 
     <div id="repro-screenshot-preview" style="padding: 12px 20px 0; display: none;">
-      <img id="repro-screenshot-img" style="width: 100%; border-radius: 2px; border: 1px solid #d5dad8;" alt="screenshot" />
+      <img id="repro-screenshot-img" style="width: 100%; border-radius: 4px; border: 1px solid ${OV.border};" alt="screenshot" />
     </div>
 
     <div style="padding: 16px 20px;">
-      <label for="repro-body" style="font-size: 13px; color: #6e7b77; display: block; margin-bottom: 6px;">What went wrong?</label>
+      <label for="repro-body" style="font-size: 13px; color: ${OV.inkMuted}; display: block; margin-bottom: 6px;">What went wrong?</label>
       <textarea
         id="repro-body"
         rows="3"
         maxlength="4000"
         placeholder="Describe the bug…"
-        style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #d5dad8; border-radius: 3px; font-size: 15px; line-height: 1.5; font-family: inherit; resize: vertical; background: #fff; color: #141a18; outline: none;"
+        style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid ${OV.border}; border-radius: 4px; font-size: 15px; line-height: 1.5; font-family: inherit; resize: vertical; background: ${OV.bgInput}; color: ${OV.ink}; outline: none;"
       ></textarea>
     </div>
 
     <div style="padding: 0 20px 16px; display: flex; align-items: center; justify-content: space-between;">
-      <span id="repro-status" style="font-size: 12px; color: #6e7b77;"></span>
-      <button id="repro-submit" type="button" style="padding: 8px 20px; background: #141a18; color: #f1f3f2; border: none; border-radius: 3px; font-size: 13px; font-weight: 500; cursor: pointer;">
+      <span id="repro-status" style="font-size: 12px; color: ${OV.inkMuted};"></span>
+      <button id="repro-submit" type="button" style="padding: 8px 20px; background: ${OV.accent}; color: ${OV.accentFg}; border: none; border-radius: 4px; font-size: 13px; font-weight: 500; cursor: pointer;">
         Submit
       </button>
     </div>
