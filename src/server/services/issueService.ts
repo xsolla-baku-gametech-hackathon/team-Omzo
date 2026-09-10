@@ -6,6 +6,7 @@ import { db } from "@/server/db";
 import { sharedTraitsOf, toPreparedReport } from "@/server/reportMapping";
 import { payVerificationReward } from "@/server/services/rewardService";
 import { campaignEvents } from "@/server/events";
+import { recordAuditEvent } from "@/server/security/auditLog";
 import type { Issue, Prisma, Report, Severity } from "@prisma/client";
 
 /**
@@ -224,6 +225,12 @@ export async function verifyIssue(
   // verified but whose payout failed is recoverable by verifying again, while
   // a payout that succeeded against a status change that rolled back is not.
   await payVerificationReward(updated.id);
+
+  recordAuditEvent("ISSUE_VERIFIED", studioId, updated.id, {
+    campaignId: updated.campaignId,
+    title: updated.title,
+    severity: updated.severity,
+  });
 
   campaignEvents.emit({
     type: "issue_verified",
