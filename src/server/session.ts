@@ -1,12 +1,14 @@
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 
+import { requireSecretBytes } from "@/server/config/secrets";
+
 /**
  * Custom session layer using jose and httpOnly cookies (SPEC.md §2, §6.5).
  *
  * Rules:
  * - 7 days TTL
- * - HS256 with SESSION_SECRET
+ * - HS256 with SESSION_SECRET, which must be provided outside development
  * - httpOnly, sameSite lax, secure in production
  * - Zero external provider dependencies
  */
@@ -14,10 +16,15 @@ import { SignJWT, jwtVerify } from "jose";
 export const SESSION_COOKIE_NAME = "repro_session";
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
-const SESSION_SECRET = new TextEncoder().encode(
-  process.env.SESSION_SECRET ??
-    "fallback-dev-session-secret-at-least-32-chars-long",
-);
+/**
+ * Read per call rather than at module load. A throw at import time would
+ * take down `next build`, which evaluates modules without the deploy's
+ * environment; failing at the point of signing or verifying keeps the
+ * failure where it belongs.
+ */
+function sessionKey(): Uint8Array {
+  return requireSecretBytes("SESSION_SECRET");
+}
 
 export interface SessionPayload {
   readonly sub: string; // User ID
@@ -43,7 +50,7 @@ export async function createSessionToken(
     .setSubject(payload.sub)
     .setIssuedAt()
     .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
-    .sign(SESSION_SECRET);
+    .sign(sessionKey());
 }
 
 /**
@@ -52,8 +59,13 @@ export async function createSessionToken(
 export async function verifySessionToken(
   token: string,
 ): Promise<SessionPayload | null> {
+  // Resolved outside the try on purpose. A malformed or expired token is a
+  // normal event and becomes null; a missing or weak SESSION_SECRET is an
+  // operator error and must surface rather than be reported as a bad login.
+  const key = sessionKey();
+
   try {
-    const { payload } = await jwtVerify(token, SESSION_SECRET);
+    const { payload } = await jwtVerify(token, key);
     if (
       !payload.sub ||
       typeof payload.email !== "string" ||
