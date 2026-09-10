@@ -1,0 +1,68 @@
+/*
+ * The only source of colour and type in this repo. Components import nothing
+ * else and never write an ad-hoc hex value. See SPEC.md §8.
+ *
+ * Two colours are reserved and appear nowhere except their one meaning:
+ *   --color-critical  CRITICAL severity, and nothing else
+ *   --color-verified  verified / clustered state, and nothing else
+ * That restraint is what makes the issue board readable at a glance. If a
+ * third use for either colour appears, the design is wrong, not the token.
+ */
+
+@theme {
+  /* ---- surface ---- */
+  --color-paper: #f1f3f2; /* cool paper, the page ground */
+  --color-raised: #f7f8f8; /* the quieter right column */
+  --color-ink: #141a18; /* primary text */
+  --color-slate: #6e7b77; /* secondary text, never below 15px on paper */
+  --color-hairline: #d5dad8; /* rules and borders, 1px only */
+
+  /* ---- reserved ---- */
+  --color-critical: #d2452b; /* vermilion. CRITICAL only. */
+  --color-verified: #0f5e58; /* deep teal. verified/clustered only. */
+
+  /* ---- severity rules (3px left rule on an issue row) ---- */
+  --color-sev-critical: var(--color-critical);
+  --color-sev-high: #8a4a3c;
+  --color-sev-medium: #6e7b77;
+  --color-sev-low: #d5dad8;
+
+  /* ---- type: one family, three deliberate roles ---- */
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* role 1 — figures: occurrence counts and the collapse numbers */
+  --text-figure: 2.75rem;
+  --text-figure--line-height: 1;
+  --text-figure--letter-spacing: -0.03em;
+  --text-figure--font-weight: 600;
+
+  /* role 2 — interface labels. No all-caps, ever. */
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.35;
+  --text-label--letter-spacing: 0;
+
+  --text-label-lg: 0.875rem;
+  --text-label-lg--line-height: 1.4;
+
+  /* role 3 — body copy. Generous leading, max 68ch per line. */
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.65;
+
+  /* ---- measure ---- */
+  --container-measure: 68ch;
+
+  /* ---- motion: exactly one orchestrated moment, the triage collapse ---- */
+  --ease-collapse: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --duration-collapse: 1400ms;
+  --duration-instant: 120ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-collapse: 0ms;
+    --duration-instant: 0ms;
+  }
+}
