@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { WatermarkedFrame } from "@/components/WatermarkedFrame";
+
 interface ValidationResponse {
   valid: boolean;
   campaignTitle: string;
@@ -124,7 +126,7 @@ export default function SessionPage() {
         </div>
 
         <div className="flex items-center gap-4 text-xs">
-          <span className="text-slate">Watermark Active</span>
+          <span className="text-slate">Watermark active</span>
           <Link
             href={`/play/${campaignId}/nda`}
             className="text-slate hover:text-ink transition-colors"
@@ -137,38 +139,18 @@ export default function SessionPage() {
       {/* Main Play Area */}
       <main className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="max-w-4xl w-full border border-hairline bg-raised rounded-sm overflow-hidden shadow-xs">
-          <div className="aspect-video bg-ink flex flex-col items-center justify-center p-8 text-paper text-center relative">
-            <div className="space-y-4 max-w-md">
-              <div className="text-xs uppercase tracking-widest text-slate">
-                Active Technical Build Frame
-              </div>
-              <h2 className="text-xl font-medium tracking-tight">
-                {data.campaignTitle}
-              </h2>
-              <p className="text-xs text-slate/80 leading-relaxed">
-                Press{" "}
-                <kbd className="px-1.5 py-0.5 bg-paper/20 rounded font-mono text-paper">
-                  F1
-                </kbd>{" "}
-                at any time to open the in-game report overlay.
-              </p>
-            </div>
+          <WatermarkedFrame
+            watermarkId={data.watermarkId}
+            campaignTitle={data.campaignTitle}
+          />
 
-            {/* Subtle watermark identifier representation */}
-            <div className="absolute bottom-3 right-4 font-mono text-[10px] text-paper/20 select-none">
-              WM-TAG-{data.watermarkId}
-            </div>
-          </div>
-
-          <div className="p-4 bg-paper border-t border-hairline flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate">
+          <div className="p-4 bg-paper border-t border-hairline flex flex-col sm:flex-row items-center justify-between gap-4 text-label text-slate">
             <div>
               Build mode:{" "}
               <span className="font-mono text-ink">{data.buildKind}</span>
             </div>
-            <div className="flex items-center gap-4">
-              <span>
-                Token expires at {new Date(data.expiresAt).toLocaleTimeString()}
-              </span>
+            <div>
+              Token expires at {new Date(data.expiresAt).toLocaleTimeString()}
             </div>
           </div>
         </div>
