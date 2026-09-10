@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -53,9 +52,7 @@ export default function Home() {
     <div className="min-h-screen bg-[var(--color-surface-page)] text-[var(--color-ink-primary)] font-sans flex flex-col selection:bg-[var(--color-accent-soft)]">
       {/* Header */}
       <header className="flex justify-between items-center px-6 py-4 border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-page)]">
-        <div className="font-semibold text-lg tracking-tight">
-          Repro
-        </div>
+        <div className="font-semibold text-lg tracking-tight">Repro</div>
         <nav className="flex items-center gap-4 text-[14px]">
           <Link
             href="/play"
@@ -75,7 +72,6 @@ export default function Home() {
           >
             Sign in
           </Link>
-          <ThemeToggle />
         </nav>
       </header>
 
@@ -120,7 +116,9 @@ export default function Home() {
           </h1>
 
           <p className="text-[15px] sm:text-[16px] leading-[1.6] text-[var(--color-ink-secondary)] max-w-[54ch] mx-auto">
-            Repro turns chaotic playtesting feedback into clustered engineering issues with mathematical triage, forensic leak tracing, and cryptographic build protection.
+            Repro turns chaotic playtesting feedback into clustered engineering
+            issues with mathematical triage, forensic leak tracing, and
+            cryptographic build protection.
           </p>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3 w-full sm:w-auto">
@@ -149,7 +147,12 @@ export default function Home() {
               What Repro does
             </h2>
             <p className="text-[15px] leading-[1.6] text-[var(--color-ink-secondary)]">
-              A studio distributing a pre-release build typically receives hundreds of unstructured reports. A developer loses days sorting through duplicates, ambiguous descriptions, and irreproducible noise. Repro sits between testers and studios, receiving reports from an in-game overlay and automatically clustering identical defects into actionable, high-signal issues.
+              A studio distributing a pre-release build typically receives
+              hundreds of unstructured reports. A developer loses days sorting
+              through duplicates, ambiguous descriptions, and irreproducible
+              noise. Repro sits between testers and studios, receiving reports
+              from an in-game overlay and automatically clustering identical
+              defects into actionable, high-signal issues.
             </p>
           </div>
 
@@ -159,7 +162,13 @@ export default function Home() {
               How the triage works
             </h2>
             <p className="text-[15px] leading-[1.6] text-[var(--color-ink-secondary)]">
-              Triage evaluates four distinct signals: lexical similarity via TF-IDF cosine distance, 3D coordinate proximity with strict scene veto, normalized console log signatures, and hardware environment tallies. The engine enforces one foundational rule: when in doubt, do not merge. Cluster centroids and IDF vocabularies are rebuilt in memory on every ingest to guarantee deterministic reproducibility without vector database overhead.
+              Triage evaluates four distinct signals: lexical similarity via
+              TF-IDF cosine distance, 3D coordinate proximity with strict scene
+              veto, normalized console log signatures, and hardware environment
+              tallies. The engine enforces one foundational rule: when in doubt,
+              do not merge. Cluster centroids and IDF vocabularies are rebuilt
+              in memory on every ingest to guarantee deterministic
+              reproducibility without vector database overhead.
             </p>
           </div>
 
@@ -169,7 +178,14 @@ export default function Home() {
               Security layers and their limits
             </h2>
             <p className="text-[15px] leading-[1.6] text-[var(--color-ink-secondary)]">
-              Every build token is signed with HMAC-SHA256, carries a 15-minute TTL, and binds to the tester’s browser user-agent hash. When an unreleased build frame is exported, a 16-bit forensic watermark is embedded into pixel luminance with tolerance for 2× and 3× downscales. Bug report screenshots attached to tickets are lossy JPEGs and carry no watermark — only lossless forensic frames do. These protections establish accountability; they do not claim to prevent an adversary with hardware capture cards.
+              Every build token is signed with HMAC-SHA256, carries a 15-minute
+              TTL, and binds to the tester’s browser user-agent hash. When an
+              unreleased build frame is exported, a 16-bit forensic watermark is
+              embedded into pixel luminance with tolerance for 2× and 3×
+              downscales. Bug report screenshots attached to tickets are lossy
+              JPEGs and carry no watermark — only lossless forensic frames do.
+              These protections establish accountability; they do not claim to
+              prevent an adversary with hardware capture cards.
             </p>
           </div>
 
@@ -177,10 +193,16 @@ export default function Home() {
           <div className="pt-6 border-t border-[var(--color-line-hairline)] flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-[var(--color-ink-secondary)]">
             <span>Repro — Xsolla GameTech Hackathon</span>
             <div className="flex gap-4">
-              <Link href="/studio" className="text-[var(--color-ink-primary)] hover:underline">
+              <Link
+                href="/studio"
+                className="text-[var(--color-ink-primary)] hover:underline"
+              >
                 Studio Login
               </Link>
-              <Link href="/play" className="text-[var(--color-ink-primary)] hover:underline">
+              <Link
+                href="/play"
+                className="text-[var(--color-ink-primary)] hover:underline"
+              >
                 Tester Access
               </Link>
             </div>

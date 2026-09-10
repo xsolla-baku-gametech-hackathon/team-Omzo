@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ForensicsUpload } from "@/components/ForensicsUpload";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { getStudioCampaign } from "@/server/services/campaignService";
 import { getSession } from "@/server/session";
 
@@ -24,7 +23,10 @@ export default async function ForensicsPage(props: {
       <header className="border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/studio" className="font-semibold text-sm text-[var(--color-ink-primary)]">
+            <Link
+              href="/studio"
+              className="font-semibold text-sm text-[var(--color-ink-primary)]"
+            >
               Repro
             </Link>
             <span className="text-[var(--color-line-hairline)]">/</span>
@@ -35,9 +37,10 @@ export default async function ForensicsPage(props: {
               {campaign.title}
             </Link>
             <span className="text-[var(--color-line-hairline)]">/</span>
-            <span className="text-xs text-[var(--color-ink-primary)] font-medium">Forensics</span>
+            <span className="text-xs text-[var(--color-ink-primary)] font-medium">
+              Forensics
+            </span>
           </div>
-          <ThemeToggle />
         </div>
       </header>
 
@@ -47,7 +50,8 @@ export default async function ForensicsPage(props: {
             Trace a leaked frame
           </h1>
           <p className="mt-2 text-[15px] text-[var(--color-ink-secondary)] max-w-[68ch] leading-relaxed">
-            Every build session embeds the tester&rsquo;s identifier into pixel brightness. Upload a lossless PNG to recover their identity.
+            Every build session embeds the tester&rsquo;s identifier into pixel
+            brightness. Upload a lossless PNG to recover their identity.
           </p>
         </div>
 
@@ -58,7 +62,11 @@ export default async function ForensicsPage(props: {
             What forensic watermarking can and cannot do
           </h2>
           <p className="text-[13px] text-[var(--color-ink-secondary)] max-w-[68ch] leading-relaxed">
-            The watermark survives lossless PNG capture, high-DPI scaling, and 2× or 3× downscales. It cannot survive lossy JPEG compression, heavy Instagram-style filters, or photographing a physical screen with a phone camera. When the mark is unrecoverable, this screen states so plainly rather than guessing.
+            The watermark survives lossless PNG capture, high-DPI scaling, and
+            2× or 3× downscales. It cannot survive lossy JPEG compression, heavy
+            Instagram-style filters, or photographing a physical screen with a
+            phone camera. When the mark is unrecoverable, this screen states so
+            plainly rather than guessing.
           </p>
         </section>
       </div>

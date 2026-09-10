@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { getStudioCampaigns } from "@/server/services/campaignService";
 import { getSession } from "@/server/session";
 
@@ -19,7 +18,10 @@ export default async function StudioDashboardPage() {
       <header className="border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="font-semibold text-lg tracking-tight text-[var(--color-ink-primary)]">
+            <Link
+              href="/"
+              className="font-semibold text-lg tracking-tight text-[var(--color-ink-primary)]"
+            >
               Repro
             </Link>
             <span className="text-[var(--color-line-hairline)]">/</span>
@@ -28,14 +30,15 @@ export default async function StudioDashboardPage() {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-xs text-[var(--color-ink-secondary)] hidden sm:inline">{session.displayName}</span>
+            <span className="text-xs text-[var(--color-ink-secondary)] hidden sm:inline">
+              {session.displayName}
+            </span>
             <Link
               href="/studio/new"
               className="py-1.5 px-3 bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] text-xs font-medium rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity"
             >
               + New Campaign
             </Link>
-            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -44,7 +47,9 @@ export default async function StudioDashboardPage() {
       <main className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-ink-primary)]">Campaigns</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-ink-primary)]">
+              Campaigns
+            </h1>
             <p className="text-sm text-[var(--color-ink-secondary)] mt-1">
               Active and archived technical playtests.
             </p>
@@ -53,9 +58,12 @@ export default async function StudioDashboardPage() {
 
         {campaigns.length === 0 ? (
           <div className="border border-dashed border-[var(--color-line-hairline)] p-12 text-center rounded-[var(--radius-md)] bg-[var(--color-surface-sunken)]">
-            <h3 className="text-base font-medium text-[var(--color-ink-primary)]">No campaigns created yet</h3>
+            <h3 className="text-base font-medium text-[var(--color-ink-primary)]">
+              No campaigns created yet
+            </h3>
             <p className="text-sm text-[var(--color-ink-secondary)] mt-1 max-w-sm mx-auto">
-              Create your first campaign to distribute your build to testers and start collecting triaged reports.
+              Create your first campaign to distribute your build to testers and
+              start collecting triaged reports.
             </p>
             <Link
               href="/studio/new"
@@ -85,7 +93,9 @@ export default async function StudioDashboardPage() {
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-base font-semibold text-[var(--color-ink-primary)]">{c.title}</h2>
+                      <h2 className="text-base font-semibold text-[var(--color-ink-primary)]">
+                        {c.title}
+                      </h2>
                       {isRevoked ? (
                         <span className="text-[11px] px-2 py-0.5 bg-[var(--color-alert-soft)] text-[var(--color-alert)] font-medium rounded-[var(--radius-sm)]">
                           Revoked
@@ -104,7 +114,10 @@ export default async function StudioDashboardPage() {
                       {c.pitch}
                     </p>
                     <div className="text-xs text-[var(--color-ink-secondary)] pt-1">
-                      Focus: <span className="text-[var(--color-ink-primary)]">{c.testFocus}</span>
+                      Focus:{" "}
+                      <span className="text-[var(--color-ink-primary)]">
+                        {c.testFocus}
+                      </span>
                     </div>
                   </div>
 

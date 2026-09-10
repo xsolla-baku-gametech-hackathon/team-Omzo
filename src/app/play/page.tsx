@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { getOpenCampaigns } from "@/server/services/campaignService";
 import { getSession } from "@/server/session";
 
@@ -14,7 +13,10 @@ export default async function PlayIndexPage() {
       <header className="border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/" className="font-semibold text-lg tracking-tight text-[var(--color-ink-primary)]">
+            <Link
+              href="/"
+              className="font-semibold text-lg tracking-tight text-[var(--color-ink-primary)]"
+            >
               Repro
             </Link>
             <span className="text-[var(--color-line-hairline)]">/</span>
@@ -52,7 +54,6 @@ export default async function PlayIndexPage() {
                 </Link>
               </div>
             )}
-            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -64,7 +65,9 @@ export default async function PlayIndexPage() {
             Open Playtests
           </h1>
           <p className="text-sm text-[var(--color-ink-secondary)] mt-1 max-w-xl leading-relaxed">
-            Pre-release technical builds looking for critical bugs and traversal breaks. Sign the NDA to receive traceable access and earn bounty tokens.
+            Pre-release technical builds looking for critical bugs and traversal
+            breaks. Sign the NDA to receive traceable access and earn bounty
+            tokens.
           </p>
         </div>
 
@@ -96,7 +99,10 @@ export default async function PlayIndexPage() {
                     </div>
                     {studio && (
                       <div className="text-xs font-medium text-[var(--color-ink-secondary)]">
-                        Studio: <span className="text-[var(--color-ink-primary)]">{studio.name}</span>
+                        Studio:{" "}
+                        <span className="text-[var(--color-ink-primary)]">
+                          {studio.name}
+                        </span>
                       </div>
                     )}
                     <p className="text-sm text-[var(--color-ink-secondary)] leading-relaxed pt-1">
@@ -106,13 +112,17 @@ export default async function PlayIndexPage() {
                       <span className="font-semibold text-[var(--color-ink-primary)] uppercase tracking-wider text-[10px]">
                         Test Focus:
                       </span>{" "}
-                      <span className="text-[var(--color-ink-secondary)]">{c.testFocus}</span>
+                      <span className="text-[var(--color-ink-secondary)]">
+                        {c.testFocus}
+                      </span>
                     </div>
                   </div>
 
                   <div className="flex flex-col items-end justify-between self-stretch border-t md:border-t-0 md:border-l border-[var(--color-line-hairline)] pt-4 md:pt-0 md:pl-6 min-w-[180px]">
                     <div className="space-y-1 text-right mb-4">
-                      <div className="text-xs text-[var(--color-ink-secondary)]">Reward per issue</div>
+                      <div className="text-xs text-[var(--color-ink-secondary)]">
+                        Reward per issue
+                      </div>
                       <div className="text-xl font-semibold tracking-tight text-[var(--color-ink-primary)] font-mono">
                         {c.rewardPerIssue} coins
                       </div>

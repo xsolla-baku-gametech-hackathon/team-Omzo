@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -55,9 +54,7 @@ export default function RegisterPage() {
 
   return (
     <main className="min-h-screen bg-[var(--color-surface-page)] flex items-center justify-center p-6 text-[var(--color-ink-primary)] font-sans relative">
-      <div className="absolute top-6 right-6">
-        <ThemeToggle />
-      </div>
+      <div className="absolute top-6 right-6"></div>
 
       <div className="w-full max-w-md border border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] p-8 rounded-[var(--radius-md)] shadow-xs">
         <div className="mb-6">
@@ -217,7 +214,10 @@ export default function RegisterPage() {
 
         <div className="mt-6 pt-4 border-t border-[var(--color-line-hairline)] text-center text-xs text-[var(--color-ink-secondary)]">
           Already registered?{" "}
-          <Link href="/login" className="text-[var(--color-ink-primary)] underline font-medium">
+          <Link
+            href="/login"
+            className="text-[var(--color-ink-primary)] underline font-medium"
+          >
             Sign in
           </Link>
         </div>

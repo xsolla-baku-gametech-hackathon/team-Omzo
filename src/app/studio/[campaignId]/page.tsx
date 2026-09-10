@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { IssueBoard } from "@/components/IssueBoard";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import type { BoardIssue } from "@/components/IssueBoard";
 import type { StreamReport } from "@/components/RawStream";
 import { getStudioCampaign } from "@/server/services/campaignService";
@@ -60,10 +59,16 @@ export default async function CampaignBoardPage(props: {
       <header className="border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] px-6 py-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <Link href="/studio" className="text-[14px] font-semibold text-[var(--color-ink-primary)]">
+            <Link
+              href="/studio"
+              className="text-[14px] font-semibold text-[var(--color-ink-primary)]"
+            >
               Repro
             </Link>
-            <span aria-hidden="true" className="text-[var(--color-line-hairline)]">
+            <span
+              aria-hidden="true"
+              className="text-[var(--color-line-hairline)]"
+            >
               /
             </span>
             <span className="truncate text-[13px] text-[var(--color-ink-secondary)]">
@@ -83,7 +88,6 @@ export default async function CampaignBoardPage(props: {
             >
               Campaigns
             </Link>
-            <ThemeToggle />
           </nav>
         </div>
       </header>

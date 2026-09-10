@@ -6,7 +6,6 @@ import type { PossibleDuplicate } from "@/components/PossibleDuplicates";
 import { VerifyIssueButton } from "@/components/VerifyIssueButton";
 import { ScreenshotGrid } from "@/components/ScreenshotGrid";
 import { TraitSentence } from "@/components/TraitSentence";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import type { GameState } from "@/domain/triage/types";
 import {
   IssueNotFoundError,
@@ -85,10 +84,16 @@ export default async function IssueDetailPage(props: {
       <header className="border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] px-6 py-4">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/studio" className="text-[14px] font-semibold text-[var(--color-ink-primary)]">
+            <Link
+              href="/studio"
+              className="text-[14px] font-semibold text-[var(--color-ink-primary)]"
+            >
               Repro
             </Link>
-            <span aria-hidden="true" className="text-[var(--color-line-hairline)]">
+            <span
+              aria-hidden="true"
+              className="text-[var(--color-line-hairline)]"
+            >
               /
             </span>
             <Link
@@ -97,15 +102,16 @@ export default async function IssueDetailPage(props: {
             >
               Board
             </Link>
-            <span aria-hidden="true" className="text-[var(--color-line-hairline)]">
+            <span
+              aria-hidden="true"
+              className="text-[var(--color-line-hairline)]"
+            >
               /
             </span>
             <span className="text-[14px] text-[var(--color-ink-secondary)] truncate max-w-[200px]">
               {issue.title}
             </span>
           </div>
-
-          <ThemeToggle />
         </div>
       </header>
 
@@ -154,7 +160,10 @@ export default async function IssueDetailPage(props: {
         {/* 1. Screenshots Grid at Top (§3.3) */}
         {screenshots.length > 0 && (
           <section aria-labelledby="shots-heading">
-            <h2 id="shots-heading" className="text-[12px] font-semibold uppercase tracking-wider text-[var(--color-ink-secondary)] mb-3">
+            <h2
+              id="shots-heading"
+              className="text-[12px] font-semibold uppercase tracking-wider text-[var(--color-ink-secondary)] mb-3"
+            >
               Captured Screenshots
             </h2>
             <ScreenshotGrid screenshots={screenshots.slice(0, 6)} />
@@ -172,7 +181,10 @@ export default async function IssueDetailPage(props: {
         {/* 4. Occurrences List */}
         <section aria-labelledby="occurrences-heading" className="space-y-4">
           <div className="flex items-baseline justify-between border-b border-[var(--color-line-hairline)] pb-2">
-            <h2 id="occurrences-heading" className="text-[16px] font-semibold text-[var(--color-ink-primary)]">
+            <h2
+              id="occurrences-heading"
+              className="text-[16px] font-semibold text-[var(--color-ink-primary)]"
+            >
               Occurrences ({occurrences.length})
             </h2>
             <span className="text-[12px] text-[var(--color-ink-secondary)]">
@@ -194,13 +206,18 @@ export default async function IssueDetailPage(props: {
                   </p>
                   <div className="flex items-center gap-2 text-[12px] text-[var(--color-ink-secondary)]">
                     <span className="font-medium text-[var(--color-ink-primary)]">
-                      {(report as unknown as { reporter?: { displayName: string } }).reporter?.displayName ?? "A tester"}
+                      {(
+                        report as unknown as {
+                          reporter?: { displayName: string };
+                        }
+                      ).reporter?.displayName ?? "A tester"}
                     </span>
                     <span>·</span>
                     <span>{state.scene}</span>
                     <span>·</span>
                     <span className="font-mono">
-                      pos({Math.round(state.x)}, {Math.round(state.y)}, {Math.round(state.z)})
+                      pos({Math.round(state.x)}, {Math.round(state.y)},{" "}
+                      {Math.round(state.z)})
                     </span>
                   </div>
 

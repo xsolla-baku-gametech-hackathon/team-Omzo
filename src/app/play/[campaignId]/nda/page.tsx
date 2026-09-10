@@ -271,7 +271,8 @@ export default function NdaSigningPage() {
                     </p>
                   ) : (
                     <p className="text-[11px] text-slate mt-1">
-                      Həm adınızı, həm də soyadınızı tam daxil etməlisiniz. Bu məlumat hüquqi sənəddə imzanız kimi qeydə alınır.
+                      Həm adınızı, həm də soyadınızı tam daxil etməlisiniz. Bu
+                      məlumat hüquqi sənəddə imzanız kimi qeydə alınır.
                     </p>
                   )}
                 </div>
@@ -299,7 +300,8 @@ export default function NdaSigningPage() {
                       />
                     </div>
                     <div className="text-xs text-slate leading-relaxed sm:pt-4">
-                      ✓ Konfidensial NDA sənədlərini imzalamaq üçün ən azı 18 yaşınız olmalıdır.
+                      ✓ Konfidensial NDA sənədlərini imzalamaq üçün ən azı 18
+                      yaşınız olmalıdır.
                     </div>
                   </div>
                 </div>
@@ -338,7 +340,9 @@ export default function NdaSigningPage() {
                       onClick={() => setLinkedInVerified(!linkedInVerified)}
                       className="px-3 py-1.5 border border-[#0A66C2] text-[#0A66C2] hover:bg-[#0A66C2] hover:text-white text-xs font-medium rounded-xs transition-colors shrink-0"
                     >
-                      {linkedInVerified ? "✓ Təsdiqləndi" : "LinkedIn ilə Doğrula"}
+                      {linkedInVerified
+                        ? "✓ Təsdiqləndi"
+                        : "LinkedIn ilə Doğrula"}
                     </button>
                   </div>
 
@@ -355,7 +359,8 @@ export default function NdaSigningPage() {
                       htmlFor="isHuman"
                       className="text-xs text-slate leading-relaxed"
                     >
-                      Təsdiqləyirəm ki, mən <strong>real insanam</strong>, avtomatlaşdırılmış bot və ya skreyper deyiləm.
+                      Təsdiqləyirəm ki, mən <strong>real insanam</strong>,
+                      avtomatlaşdırılmış bot və ya skreyper deyiləm.
                     </label>
                   </div>
                 </div>
@@ -374,13 +379,21 @@ export default function NdaSigningPage() {
                     htmlFor="agree"
                     className="text-xs text-slate leading-relaxed"
                   >
-                    Yuxarıdakı konfidensiallıq şərtlərini qəbul edirəm və başa düşürəm ki, oyun kadrları sızmaların qarşısını almaq üçün şəxsi <strong>məhkəmə-tibbi (forensik) su nişanı</strong> ilə qorunur.
+                    Yuxarıdakı konfidensiallıq şərtlərini qəbul edirəm və başa
+                    düşürəm ki, oyun kadrları sızmaların qarşısını almaq üçün
+                    şəxsi <strong>məhkəmə-tibbi (forensik) su nişanı</strong>{" "}
+                    ilə qorunur.
                   </label>
                 </div>
 
                 {/* 5. Privacy Notice */}
                 <div className="p-3 bg-paper border border-hairline rounded-sm text-[11px] text-slate leading-relaxed">
-                  🔒 <strong>Anonimlik və Məxfilik Təminatı:</strong> Sizin hüquqi adınız və LinkedIn məlumatlarınız Repro tərəfindən ciddi şəkildə şifrələnərək gizli saxlanılır. Oyun studiyaları yalnız sizin anonim <strong>Tester ID</strong>-nizi və təsdiq nişanınızı görür. Məlumatlarınız heç bir halda üçüncü tərəflərə satılmır və ya ötürülmür.
+                  🔒 <strong>Anonimlik və Məxfilik Təminatı:</strong> Sizin
+                  hüquqi adınız və LinkedIn məlumatlarınız Repro tərəfindən
+                  ciddi şəkildə şifrələnərək gizli saxlanılır. Oyun studiyaları
+                  yalnız sizin anonim <strong>Tester ID</strong>-nizi və təsdiq
+                  nişanınızı görür. Məlumatlarınız heç bir halda üçüncü
+                  tərəflərə satılmır və ya ötürülmür.
                 </div>
               </>
             )}

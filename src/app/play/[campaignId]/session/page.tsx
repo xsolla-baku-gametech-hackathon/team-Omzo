@@ -105,7 +105,8 @@ export default function SessionPage() {
 
           {isUaMismatch && (
             <p className="text-[12px] text-[var(--color-ink-secondary)] mb-6 leading-relaxed">
-              Every build access token is cryptographically bound to the specific browser and device that requested it.
+              Every build access token is cryptographically bound to the
+              specific browser and device that requested it.
             </p>
           )}
 
@@ -132,7 +133,10 @@ export default function SessionPage() {
         }`}
       >
         <div className="flex items-center gap-4">
-          <Link href="/" className="font-semibold text-sm tracking-tight text-[var(--color-ink-primary)]">
+          <Link
+            href="/"
+            className="font-semibold text-sm tracking-tight text-[var(--color-ink-primary)]"
+          >
             Repro
           </Link>
           <span className="text-[var(--color-line-hairline)]">/</span>
@@ -145,7 +149,9 @@ export default function SessionPage() {
         </div>
 
         <div className="flex items-center gap-4 text-[13px]">
-          <span className="text-[var(--color-ink-secondary)] hidden sm:inline">Watermark active</span>
+          <span className="text-[var(--color-ink-secondary)] hidden sm:inline">
+            Watermark active
+          </span>
           <Link
             href={`/play/${campaignId}/nda`}
             className="text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)] transition-colors"
@@ -170,7 +176,10 @@ export default function SessionPage() {
 
           <div className="p-4 bg-[var(--color-surface-page)] border-t border-[var(--color-line-hairline)] flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-[var(--color-ink-secondary)]">
             <div>
-              Build mode: <span className="font-mono text-[var(--color-ink-primary)]">{data.buildKind}</span>
+              Build mode:{" "}
+              <span className="font-mono text-[var(--color-ink-primary)]">
+                {data.buildKind}
+              </span>
             </div>
             <div>
               Token expires at {new Date(data.expiresAt).toLocaleTimeString()}

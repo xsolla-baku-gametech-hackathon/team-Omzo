@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { getTesterSummary } from "@/server/services/rewardService";
 import { getSession } from "@/server/session";
 
@@ -26,13 +25,21 @@ export default async function MePage() {
       <header className="border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] px-6 py-4">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/" className="text-sm font-semibold text-[var(--color-ink-primary)]">
+            <Link
+              href="/"
+              className="text-sm font-semibold text-[var(--color-ink-primary)]"
+            >
               Repro
             </Link>
-            <span aria-hidden="true" className="text-[var(--color-line-hairline)]">
+            <span
+              aria-hidden="true"
+              className="text-[var(--color-line-hairline)]"
+            >
               /
             </span>
-            <span className="text-xs text-[var(--color-ink-secondary)]">{session.displayName}</span>
+            <span className="text-xs text-[var(--color-ink-secondary)]">
+              {session.displayName}
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <Link
@@ -41,7 +48,6 @@ export default async function MePage() {
             >
               Playtests
             </Link>
-            <ThemeToggle />
           </div>
         </div>
       </header>
@@ -52,13 +58,17 @@ export default async function MePage() {
             <div className="text-[28px] md:text-[36px] font-bold tabular-nums font-mono text-[var(--color-ink-primary)]">
               {summary.balance}
             </div>
-            <p className="text-[13px] text-[var(--color-ink-secondary)] mt-1">coins earned</p>
+            <p className="text-[13px] text-[var(--color-ink-secondary)] mt-1">
+              coins earned
+            </p>
           </div>
           <div className="p-4 bg-[var(--color-surface-raised)] border border-[var(--color-line-hairline)] rounded-[var(--radius-md)]">
             <div className="text-[28px] md:text-[36px] font-bold tabular-nums font-mono text-[var(--color-ink-primary)]">
               {summary.signalScore}
             </div>
-            <p className="text-[13px] text-[var(--color-ink-secondary)] mt-1">signal score</p>
+            <p className="text-[13px] text-[var(--color-ink-secondary)] mt-1">
+              signal score
+            </p>
           </div>
           <div className="p-4 bg-[var(--color-surface-raised)] border border-[var(--color-line-hairline)] rounded-[var(--radius-md)]">
             <div className="text-[28px] md:text-[36px] font-bold tabular-nums font-mono text-[var(--color-ink-primary)]">
@@ -71,7 +81,9 @@ export default async function MePage() {
         </div>
 
         <p className="max-w-[68ch] text-[14px] leading-[1.6] text-[var(--color-ink-secondary)]">
-          Coins are claim tokens, redeemable with the studio that awarded them for keys, in-game items or a credits mention. They are not money and cannot be cashed out. You have filed {summary.reportCount}{" "}
+          Coins are claim tokens, redeemable with the studio that awarded them
+          for keys, in-game items or a credits mention. They are not money and
+          cannot be cashed out. You have filed {summary.reportCount}{" "}
           {summary.reportCount === 1 ? "report" : "reports"}.
         </p>
 
@@ -80,17 +92,22 @@ export default async function MePage() {
             role="status"
             className="max-w-[68ch] border-l-[3px] border-l-[var(--color-warn)] bg-[var(--color-surface-raised)] px-4 py-3 text-[13px] text-[var(--color-ink-primary)] rounded-r-[var(--radius-sm)] leading-relaxed"
           >
-            Your signal score is below 40, so you can file five reports an hour for now. It recovers as the issues you report get verified.
+            Your signal score is below 40, so you can file five reports an hour
+            for now. It recovers as the issues you report get verified.
           </p>
         )}
 
         <section aria-labelledby="earnings-heading" className="space-y-3 pt-4">
-          <h2 id="earnings-heading" className="text-[16px] font-semibold text-[var(--color-ink-primary)]">
+          <h2
+            id="earnings-heading"
+            className="text-[16px] font-semibold text-[var(--color-ink-primary)]"
+          >
             Earnings
           </h2>
           {summary.entries.length === 0 ? (
             <p className="text-[13px] text-[var(--color-ink-secondary)]">
-              Nothing yet. You are rewarded when a studio verifies an issue you were the first to report.
+              Nothing yet. You are rewarded when a studio verifies an issue you
+              were the first to report.
             </p>
           ) : (
             <ul className="border-t border-[var(--color-line-hairline)] divide-y divide-[var(--color-line-hairline)]">
@@ -119,11 +136,15 @@ export default async function MePage() {
         </section>
 
         <section aria-labelledby="nda-heading" className="space-y-3 pt-4">
-          <h2 id="nda-heading" className="text-[16px] font-semibold text-[var(--color-ink-primary)]">
+          <h2
+            id="nda-heading"
+            className="text-[16px] font-semibold text-[var(--color-ink-primary)]"
+          >
             Signed Confidentiality Records
           </h2>
           <p className="text-[13px] text-[var(--color-ink-secondary)] max-w-[68ch]">
-            The exact wording you agreed to is cryptographically hashed, so neither side can alter it post-signing.
+            The exact wording you agreed to is cryptographically hashed, so
+            neither side can alter it post-signing.
           </p>
           {summary.signatures.length === 0 ? (
             <p className="text-[13px] text-[var(--color-ink-secondary)]">
@@ -140,7 +161,8 @@ export default async function MePage() {
                     {signature.campaignTitle}
                   </p>
                   <p className="text-[12px] text-[var(--color-ink-secondary)]">
-                    Signed {formatDate(signature.signedAt)} as “{signature.typedName}”
+                    Signed {formatDate(signature.signedAt)} as “
+                    {signature.typedName}”
                   </p>
                   <p className="font-mono text-[11px] break-all text-[var(--color-ink-tertiary)] bg-[var(--color-surface-sunken)] p-2 rounded-[var(--radius-sm)]">
                     SHA-256: {signature.ndaBodyHash}

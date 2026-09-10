@@ -54,8 +54,14 @@ export default function NewCampaignPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        const issuesMsg = data.issues?.map((i: { path: string; message: string }) => `${i.path}: ${i.message}`).join(", ");
-        throw new Error(issuesMsg || data.message || "Failed to create campaign.");
+        const issuesMsg = data.issues
+          ?.map(
+            (i: { path: string; message: string }) => `${i.path}: ${i.message}`,
+          )
+          .join(", ");
+        throw new Error(
+          issuesMsg || data.message || "Failed to create campaign.",
+        );
       }
 
       router.push("/studio");
