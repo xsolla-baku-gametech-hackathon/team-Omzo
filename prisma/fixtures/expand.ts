@@ -102,6 +102,31 @@ const TESTERS: readonly string[] = Array.from(
   (_, i) => `tester-${String(i + 1).padStart(2, "0")}`,
 );
 
+/**
+ * Testers are not interchangeable either.
+ *
+ * In any playtest a handful of people file dozens of reports and most file
+ * one or two. Drawing reporters uniformly would give all 48 testers the same
+ * output, which flattens the leaderboard, makes the signal score meaningless
+ * and hides the whole point of paying the *first* reporter -- with uniform
+ * volume, being first is pure luck rather than a consequence of playing more.
+ *
+ * Zipf-ish: weight 1/(rank^1.1).
+ */
+const TESTER_WEIGHTS: readonly number[] = TESTERS.map(
+  (_, i) => 1 / Math.pow(i + 1, 1.1),
+);
+const TESTER_WEIGHT_TOTAL = TESTER_WEIGHTS.reduce((a, b) => a + b, 0);
+
+function pickTester(random: () => number): string {
+  let target = random() * TESTER_WEIGHT_TOTAL;
+  for (let i = 0; i < TESTERS.length; i += 1) {
+    target -= TESTER_WEIGHTS[i];
+    if (target <= 0) return TESTERS[i];
+  }
+  return TESTERS[TESTERS.length - 1];
+}
+
 function pick<T>(items: readonly T[], random: () => number): T {
   return items[Math.floor(random() * items.length)];
 }
@@ -169,33 +194,44 @@ export function expandFixture(options: FixtureOptions = {}): IncomingReport[] {
   };
 
   for (const template of BUG_TEMPLATES) {
-    template.paraphrases.forEach((body, index) => {
-      const [cx, cy, cz] = template.centre;
-      const jitter = (): number =>
-        template.spread === 0 ? 0 : (random() - 0.5) * 2 * template.spread;
+    if (template.reportCount > template.paraphrases.length) {
+      throw new Error(
+        `${template.key} wants ${template.reportCount} reports from ` +
+          `${template.paraphrases.length} paraphrases. Padding a bug out by ` +
+          `repeating a sentence would invent agreement the clusterer has ` +
+          `not earned -- write more sentences instead.`,
+      );
+    }
 
-      reports.push({
-        id: `${template.key}-${String(index + 1).padStart(3, "0")}`,
-        reporterId: pick(TESTERS, random),
-        body,
-        gameState: {
-          scene: template.scene,
-          x: Number((cx + jitter()).toFixed(2)),
-          y: cy,
-          z: Number((cz + jitter()).toFixed(2)),
-          playtimeSec: Math.floor(random() * 2400) + 120,
-        },
-        systemInfo: machineFor(template, random),
-        consoleTail: consoleTailFor(template, random),
-        createdAt: nextAt(),
+    template.paraphrases
+      .slice(0, template.reportCount)
+      .forEach((body, index) => {
+        const [cx, cy, cz] = template.centre;
+        const jitter = (): number =>
+          template.spread === 0 ? 0 : (random() - 0.5) * 2 * template.spread;
+
+        reports.push({
+          id: `${template.key}-${String(index + 1).padStart(3, "0")}`,
+          reporterId: pickTester(random),
+          body,
+          gameState: {
+            scene: template.scene,
+            x: Number((cx + jitter()).toFixed(2)),
+            y: cy,
+            z: Number((cz + jitter()).toFixed(2)),
+            playtimeSec: Math.floor(random() * 2400) + 120,
+          },
+          systemInfo: machineFor(template, random),
+          consoleTail: consoleTailFor(template, random),
+          createdAt: nextAt(),
+        });
       });
-    });
   }
 
   NOISE_BODIES.forEach((body, index) => {
     reports.push({
       id: `noise-${String(index + 1).padStart(3, "0")}`,
-      reporterId: pick(TESTERS, random),
+      reporterId: pickTester(random),
       body,
       gameState: {
         scene: pick(["atrium", "menu", "courtyard"], random),

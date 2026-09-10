@@ -29,6 +29,20 @@ export interface BugTemplate {
   readonly errorRate: number;
   /** GPU family this bug favours, if it favours one. */
   readonly gpuSkew?: string;
+  /**
+   * How many reports this bug actually draws, taken from the front of the
+   * paraphrase set.
+   *
+   * Real playtest data is power-law, not uniform: one bug is hit by everyone
+   * and described every possible way, while a rare one gets two terse lines.
+   * A uniform fixture would make every issue the same size on the board,
+   * which is both unlike production and useless for testing severity -- the
+   * share thresholds would all land in the same bucket.
+   *
+   * Never above the paraphrase count. Repeating a sentence to pad a bug out
+   * would be inventing agreement the clusterer has not earned.
+   */
+  readonly reportCount: number;
   readonly paraphrases: readonly string[];
 }
 
@@ -42,6 +56,7 @@ const LIFT_CRASH: BugTemplate = {
     "[error] entity {id} detached from scene graph",
   ],
   errorRate: 0.75,
+  reportCount: 70,
   paraphrases: [
     "The lift jams halfway up and the game stops responding",
     "Game froze completely when I called the lift in the atrium",
@@ -77,6 +92,42 @@ const LIFT_CRASH: BugTemplate = {
     "Second lift ride froze it. First one was fine",
     "Atrium lift crashes the game consistently",
     "game froze, lift, upper atrium. sorry not much detail",
+    "Atrium lift froze me out again, third time this session",
+    "Cannot use the lift at all, it hangs the game every time",
+    "Rode the lift, screen stopped updating, audio kept going",
+    "the lift is a death sentence, instant hang",
+    "Everything stopped when the lift doors shut on me",
+    "I pressed the call button and the whole thing locked",
+    "Game becomes unresponsive during the lift animation",
+    "Stuck on a frozen frame after entering the lift",
+    "Lift ride, then nothing. Completely unresponsive",
+    "The atrium elevator hangs on the way down too, not just up",
+    "Froze between floors, could still hear the music",
+    "Tried the lift three times, three hangs",
+    "Complete stop when the lift starts moving. No error shown",
+    "It just dies on the lift. Nothing I can do",
+    "Lift use results in a permanent freeze for me",
+    "The game will not respond after I take the atrium lift",
+    "Froze up in the lift car, mouse still moved but nothing happened",
+    "atrium lift hangs it every single run, cant get upstairs",
+    "Called the lift from the upper floor and it locked immediately",
+    "Whole thing seized up while riding the lift",
+    "Lift freeze again, sorry, same as my last one",
+    "The game hangs and I have to close the tab. Lift, atrium",
+    "Stopped dead as the lift doors opened at the top",
+    "Every lift ride ends the same way, frozen",
+    "Cannot get past the atrium because the lift hangs",
+    "Instant lockup on the lift, no warning",
+    "Game froze while waiting for the lift to arrive",
+    "Elevator in the atrium hard locks the build",
+    "The lift hangs whether I go up or down",
+    "Froze. Lift. Again. This one is really consistent",
+    "Rode the lift and the game stopped responding immediately",
+    "Locked up as soon as the lift began to move upward",
+    "The atrium lift is unusable, freezes on contact",
+    "Hung on the lift, had to reload the whole page",
+    "It freezes when the lift doors close behind you",
+    "lift = freeze. every time. please fix",
   ],
 };
 
@@ -90,6 +141,7 @@ const SERVER_ROOM_AUDIO: BugTemplate = {
     "[error] Assertion failed: mixer.channels > 0",
   ],
   errorRate: 0.35,
+  reportCount: 28,
   paraphrases: [
     "All the audio cuts out completely in the server room",
     "No sound at all once I walk into the server room",
@@ -132,6 +184,7 @@ const DRONE_SWARM_PERFORMANCE: BugTemplate = {
     "[error] Failed to allocate instance buffer, falling back ({n} draws)",
   ],
   errorRate: 0.4,
+  reportCount: 48,
   paraphrases: [
     "Frame rate tanks the moment the drones swarm",
     "Massive fps drop when all the drones spawn at once",
@@ -163,6 +216,24 @@ const DRONE_SWARM_PERFORMANCE: BugTemplate = {
     "Courtyard swarm = massive lag for me",
     "The drone wave makes the game stutter constantly",
     "Frame rate collapses during the courtyard encounter",
+    "The courtyard turns into a slideshow when they all arrive",
+    "Frame rate drops to nothing during the drone assault",
+    "Terrible performance once the swarm is fully spawned",
+    "Very heavy stutter in the courtyard with lots of enemies",
+    "Game struggles badly when the drone group appears",
+    "fps craters during the courtyard wave",
+    "Runs at maybe ten frames when the drones swarm",
+    "Big slowdown as soon as the wave triggers",
+    "Performance tanks hard in the courtyard fight",
+    "Really choppy when there are many drones about",
+    "The swarm makes the whole game grind",
+    "Frames drop through the floor in the courtyard",
+    "Stuttering constantly while the drones are alive",
+    "Massive hitching during the courtyard drone section",
+    "Game slows to a crawl with the full swarm out",
+    "Framerate collapses when they spawn together",
+    "Painful performance in the courtyard when the drones show up",
+    "Serious frame drops during the swarm, unplayable really",
   ],
 };
 
@@ -173,6 +244,7 @@ const LOADING_BAY_FLOOR: BugTemplate = {
   spread: 5,
   errorLines: [],
   errorRate: 0,
+  reportCount: 25,
   paraphrases: [
     "Fell through the floor near the ramp in the loading bay",
     "I clipped straight through the ground by the ramp",
@@ -213,6 +285,7 @@ const BRIDGE_TEXTURE_FLICKER: BugTemplate = {
   errorLines: [],
   errorRate: 0,
   gpuSkew: "AMD",
+  reportCount: 42,
   paraphrases: [
     "Textures flicker badly along the bridge railing",
     "The railing on the bridge is flashing constantly",
@@ -244,6 +317,18 @@ const BRIDGE_TEXTURE_FLICKER: BugTemplate = {
     "Railing on the bridge won't stop flashing",
     "Textures flicker across the bridge span",
     "Really noticeable flicker on the bridge rails",
+    "The bridge rails flicker constantly for me",
+    "Heavy flicker on the railing when I walk the bridge",
+    "Bridge handrail keeps flashing on and off",
+    "Railing textures are unstable across the bridge",
+    "Flickering along the rails, worse at a distance",
+    "The bridge railing strobes badly as I move",
+    "Textures on the bridge rail will not settle",
+    "Rails flicker the whole way across the bridge",
+    "Constant texture flashing on the bridge handrail",
+    "The railing keeps flickering, very hard to look at",
+    "Bridge rail textures blink continuously",
+    "Flicker on the bridge railing at every angle I tried",
   ],
 };
 
@@ -254,6 +339,7 @@ const TUNNEL_ENEMY_SPAWN: BugTemplate = {
   spread: 7,
   errorLines: ["[warn] navmesh sample failed for agent {id}"],
   errorRate: 0.25,
+  reportCount: 11,
   paraphrases: [
     "Enemies spawn inside the wall in the tunnel",
     "Guards appear halfway through the tunnel wall",
@@ -287,6 +373,7 @@ const SUBTITLE_OVERLAP: BugTemplate = {
   spread: 3,
   errorLines: [],
   errorRate: 0,
+  reportCount: 6,
   paraphrases: [
     "Subtitles overlap the health bar at the bottom",
     "The subtitle text sits on top of the hud",
@@ -320,6 +407,7 @@ const ROOF_CHECKPOINT: BugTemplate = {
   spread: 6,
   errorLines: [],
   errorRate: 0,
+  reportCount: 13,
   paraphrases: [
     "The checkpoint on the roof never triggers, I can't continue",
     "Roof checkpoint does not save, had to restart the whole run",
@@ -354,6 +442,7 @@ const VAULT_BLACK_FLASH: BugTemplate = {
   errorLines: [],
   errorRate: 0,
   gpuSkew: "NVIDIA",
+  reportCount: 22,
   paraphrases: [
     "Screen flashes black every few seconds in the vault",
     "Black frames keep appearing in the vault room",
@@ -393,6 +482,7 @@ const STAIRWELL_RELOAD_CRASH: BugTemplate = {
     "[error] fatal: could not restore snapshot {id}",
   ],
   errorRate: 0.8,
+  reportCount: 3,
   paraphrases: [
     "Quick reload in the stairwell crashes the game",
     "Game crashed when I loaded the checkpoint in the stairwell",
@@ -426,6 +516,7 @@ const ATRIUM_MEMORY_STUTTER: BugTemplate = {
   spread: 10,
   errorLines: ["[warn] heap grew to {n}MB since scene load"],
   errorRate: 0.3,
+  reportCount: 4,
   paraphrases: [
     "After about twenty minutes the whole game starts stuttering",
     "Performance degrades the longer I play, atrium gets choppy",
@@ -462,6 +553,7 @@ const MENU_INVENTORY_BUTTON: BugTemplate = {
   spread: 0,
   errorLines: [],
   errorRate: 0,
+  reportCount: 9,
   paraphrases: [
     "The inventory button in the menu does nothing",
     "Clicking inventory has no effect at all",
@@ -495,6 +587,7 @@ const STAIRWELL_DOOR_SOFTLOCK: BugTemplate = {
   spread: 4,
   errorLines: [],
   errorRate: 0,
+  reportCount: 15,
   paraphrases: [
     "The door at the top of the stairs never opens, I can't continue",
     "Stairwell door stays shut, softlock",
@@ -528,6 +621,7 @@ const MAP_MUSIC_RESTART: BugTemplate = {
   spread: 0,
   errorLines: [],
   errorRate: 0,
+  reportCount: 5,
   paraphrases: [
     "The music restarts every time I open the map",
     "Opening the map makes the soundtrack start over",
