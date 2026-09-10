@@ -3,13 +3,25 @@
 import { useEffect, useState } from "react";
 
 /**
- * RawStream — UI_SPEC.md §3.2, §5
+ * RawStream — UI_SPEC_V2_DARK.md §5.2
  *
- * The right-hand column: monochrome, 13px, --ink-secondary.
- * Timestamps in a fixed-width column.
- * New reports enter with a 220ms fade and a 1-second --accent-soft flash.
- * aria-live="polite" for accessibility.
+ * The right-hand column: chaos, against the decisions on the left. A raised
+ * panel with a 10px radius and its own scroll, items at --type-meta in
+ * --ink-secondary, timestamps in a fixed 52px --ink-tertiary column, and no
+ * severity colour anywhere — severity is a judgement, and nothing here has
+ * been judged yet.
+ *
+ * A new item fades in over 220ms with an --accent-wash background for one
+ * second, then goes plain. That flash is the whole realtime signal: no
+ * badge, no toast, no counter animation. One signal per event.
  */
+
+/** One raised panel, 10px radius, capped height with its own scroll. */
+const PANEL =
+  "rounded-[var(--radius-md)] bg-[var(--surface-raised)] max-h-[calc(100vh-var(--console-topbar-h)-var(--space-16))] lg:sticky lg:top-[var(--space-6)]";
+
+/** UI_SPEC.md §8: the stream is windowed rather than grown without bound. */
+const STREAM_WINDOW = 100;
 
 export interface StreamReport {
   readonly id: string;
@@ -50,20 +62,20 @@ export function RawStream({
 
   if (reports.length === 0) {
     return (
-      <p className="py-6 px-4 text-[13px] text-[var(--color-ink-secondary)] leading-relaxed">
-        Nothing yet. Reports appear here the moment a tester submits one.
-      </p>
+      <div className={PANEL}>
+        <p className="px-[var(--space-4)] py-[var(--space-6)] text-[length:var(--type-meta-size)] leading-[var(--type-body-lh)] text-[var(--ink-tertiary)]">
+          Nothing yet. Reports appear here the moment a tester submits one.
+        </p>
+      </div>
     );
   }
 
-  // Virtualise / limit window to 100 items per budget (§8)
-  const visible = reports.slice(0, 100);
+  // Windowing per UI_SPEC.md §8: the board caps its own state at 100, and
+  // the column renders at most that, so the DOM never grows past the window.
+  const visible = reports.slice(0, STREAM_WINDOW);
 
   return (
-    <ol
-      aria-live="polite"
-      className="divide-y divide-[var(--color-line-hairline)] bg-[var(--color-surface-raised)]"
-    >
+    <ol aria-live="polite" className={`${PANEL} overflow-y-auto`}>
       {visible.map((report) => {
         const isFlashing = report.id === latestReportId;
 
@@ -71,29 +83,28 @@ export function RawStream({
           <li
             key={report.id}
             style={{
-              backgroundColor: isFlashing ? "var(--color-accent-soft)" : "transparent",
-              transition: "background-color 220ms ease-out",
+              backgroundColor: isFlashing
+                ? "var(--accent-wash)"
+                : "transparent",
+              transition:
+                "background-color var(--dur-base) var(--ease-standard)",
             }}
-            className="px-4 py-3 flex items-start gap-3"
+            className="flex items-start gap-[var(--space-3)] border-b border-[var(--line-subtle)] px-[var(--space-4)] py-[var(--space-3)] last:border-b-0"
           >
-            <span className="w-10 shrink-0 text-right tabular-nums text-[12px] text-[var(--color-ink-secondary)] pt-0.5">
+            <span className="w-[var(--stream-time-col)] shrink-0 text-right tabular-nums text-[length:var(--type-meta-size)] leading-[var(--type-meta-lh)] text-[var(--ink-tertiary)]">
               {timeAgo(report.createdAt, now)}
             </span>
 
-            <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="flex items-baseline gap-2 text-[12px] text-[var(--color-ink-secondary)]">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-[var(--space-2)] text-[length:var(--type-meta-size)] leading-[var(--type-meta-lh)] text-[var(--ink-tertiary)]">
                 <span className="truncate">{report.scene}</span>
-                {report.isNoise && (
-                  <span className="italic text-[11px] text-[var(--color-ink-tertiary)]">
-                    (noise)
-                  </span>
-                )}
+                {report.isNoise && <span>noise</span>}
               </div>
               <p
-                className={`text-[13px] leading-[1.4] line-clamp-2 ${
+                className={`line-clamp-2 text-[length:var(--type-meta-size)] leading-[var(--type-meta-lh)] ${
                   report.isNoise
-                    ? "text-[var(--color-ink-tertiary)]"
-                    : "text-[var(--color-ink-primary)]"
+                    ? "text-[var(--ink-tertiary)]"
+                    : "text-[var(--ink-secondary)]"
                 }`}
               >
                 {report.body}
