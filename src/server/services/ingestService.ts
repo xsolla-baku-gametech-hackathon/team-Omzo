@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 
 import type { Prisma, Report as ReportRow } from "@prisma/client";
 
-import { categorise } from "@/domain/triage/category";
 import { ingest, rebuildIssue } from "@/domain/triage/cluster";
 import type { TriageState } from "@/domain/triage/cluster";
 import type {
@@ -14,6 +13,7 @@ import type {
   SystemInfo,
 } from "@/domain/triage/types";
 import { db } from "@/server/db";
+import { sharedTraitsOf, toPreparedReport } from "@/server/reportMapping";
 import { campaignEvents } from "@/server/events";
 
 /**
@@ -53,25 +53,6 @@ export class CampaignNotOpenError extends Error {
     super("This campaign is not accepting reports.");
     this.name = "CampaignNotOpenError";
   }
-}
-
-function toPreparedReport(row: ReportRow): PreparedReport {
-  return {
-    id: row.id,
-    reporterId: row.reporterId,
-    body: row.body,
-    gameState: row.gameState as unknown as GameState,
-    systemInfo: row.systemInfo as unknown as SystemInfo,
-    consoleTail: row.consoleTail,
-    createdAt: row.createdAt.getTime(),
-    tokens: row.tokens,
-    signature: row.signature,
-    normalisedBody: row.normalisedBody,
-    // Cheap and pure, so derived rather than stored: one less column that can
-    // disagree with the tokens sitting next to it.
-    category: categorise(row.tokens),
-    isNoise: row.isNoise,
-  };
 }
 
 /**
@@ -127,19 +108,6 @@ function toTriageState(rows: readonly ReportRow[]): TriageState {
   issues.sort((a, b) => a.reports[0].createdAt - b.reports[0].createdAt);
 
   return { issues, noise };
-}
-
-function sharedTraitsOf(issue: Issue): Prisma.InputJsonValue {
-  const asObject = (
-    tally: ReadonlyMap<string, number>,
-  ): Record<string, number> => Object.fromEntries(tally);
-  return {
-    gpu: asObject(issue.environment.gpu),
-    os: asObject(issue.environment.os),
-    browser: asObject(issue.environment.browser),
-    scene: issue.scene,
-    bucket: { ...issue.bucket },
-  };
 }
 
 async function existingOutcome(
@@ -227,7 +195,7 @@ export async function ingestReport(input: IngestInput): Promise<IngestOutcome> {
     decision.kind === "attach" || decision.kind === "possible"
       ? decision.issueId
       : decision.kind === "new"
-        ? `issue:${reportId}`
+        ? `issue_${reportId}`
         : null;
 
   const issue =
