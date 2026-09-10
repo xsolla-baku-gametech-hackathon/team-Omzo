@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { Prisma, Report as ReportRow } from "@prisma/client";
 
+import { sanitizeLogLine, sanitizeSceneId, sanitizeText } from "@/domain/sanitize";
 import { ingest, rebuildIssue } from "@/domain/triage/cluster";
 import type { TriageState } from "@/domain/triage/cluster";
 import type {
@@ -178,14 +179,23 @@ export async function ingestReport(input: IngestInput): Promise<IngestOutcome> {
     }),
   ]);
 
+  const sanitizedBody = sanitizeText(input.body);
+  const sanitizedConsoleTail = input.consoleTail.map((line) =>
+    sanitizeLogLine(line),
+  );
+  const sanitizedGameState = {
+    ...input.gameState,
+    scene: sanitizeSceneId(input.gameState.scene),
+  };
+
   const reportId = randomUUID();
   const incoming: IncomingReport = {
     id: reportId,
     reporterId: input.reporterId,
-    body: input.body,
-    gameState: input.gameState,
+    body: sanitizedBody,
+    gameState: sanitizedGameState,
     systemInfo: input.systemInfo,
-    consoleTail: input.consoleTail,
+    consoleTail: sanitizedConsoleTail,
     createdAt: Date.now(),
   };
 
@@ -229,11 +239,11 @@ export async function ingestReport(input: IngestInput): Promise<IngestOutcome> {
         id: reportId,
         campaignId: input.campaignId,
         reporterId: input.reporterId,
-        body: input.body,
+        body: sanitizedBody,
         screenshotData: input.screenshotData ?? null,
-        gameState: input.gameState as unknown as Prisma.InputJsonValue,
+        gameState: sanitizedGameState as unknown as Prisma.InputJsonValue,
         systemInfo: input.systemInfo as unknown as Prisma.InputJsonValue,
-        consoleTail: [...input.consoleTail],
+        consoleTail: [...sanitizedConsoleTail],
         signature: result.report.signature,
         tokens: [...result.report.tokens],
         normalisedBody: result.report.normalisedBody,
