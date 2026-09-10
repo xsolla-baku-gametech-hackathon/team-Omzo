@@ -85,9 +85,14 @@ async function flushQueue(): Promise<void> {
       const res = await fetch(config.endpoint, {
         method: "POST",
         headers,
-        // Same-origin by default so the session cookie is sent when the
-        // overlay runs on our own session page.
-        credentials: "include",
+        // Deliberately same-origin, not "include". The cookie still travels
+        // on our own session page, which is the only place it would be
+        // accepted anyway. "include" would additionally mark cross-origin
+        // posts as credentialed, and a credentialed request may not be
+        // answered with `Access-Control-Allow-Origin: *` — the browser would
+        // discard the response and every third-party build report would look
+        // like a network failure.
+        credentials: "same-origin",
         body: JSON.stringify(item.payload),
       });
       if (res.ok || res.status === 422) {
