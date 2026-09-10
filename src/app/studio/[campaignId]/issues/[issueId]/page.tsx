@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { ConsoleNavLink, ConsoleShell } from "@/components/ConsoleShell";
 import { PossibleDuplicates } from "@/components/PossibleDuplicates";
 import type { PossibleDuplicate } from "@/components/PossibleDuplicates";
-import { VerifyIssueButton } from "@/components/VerifyIssueButton";
+import {
+  VerifiedLabel,
+  VerifyIssueButton,
+} from "@/components/VerifyIssueButton";
 import { ScreenshotGrid } from "@/components/ScreenshotGrid";
 import { TraitSentence } from "@/components/TraitSentence";
 import type { GameState } from "@/domain/triage/types";
@@ -12,6 +16,7 @@ import {
   UnauthorizedIssueMutationError,
   getIssueDetail,
 } from "@/server/services/issueService";
+import { getStudioCampaign } from "@/server/services/campaignService";
 import { getSession } from "@/server/session";
 
 const SEVERITY_LABEL: Record<string, string> = {
@@ -41,8 +46,12 @@ export default async function IssueDetailPage(props: {
   }
 
   let issue;
+  let campaign;
   try {
-    issue = await getIssueDetail(issueId, session.studioId);
+    [issue, campaign] = await Promise.all([
+      getIssueDetail(issueId, session.studioId),
+      getStudioCampaign(campaignId, session.studioId),
+    ]);
   } catch (error) {
     if (
       error instanceof UnauthorizedIssueMutationError ||
@@ -79,185 +88,144 @@ export default async function IssueDetailPage(props: {
   const isVerified = issue.status === "VERIFIED";
 
   return (
-    <div className="min-h-screen bg-[var(--color-surface-page)] text-[var(--color-ink-primary)] font-sans pb-24">
-      {/* Header */}
-      <header className="border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] px-6 py-4">
-        <div className="mx-auto flex max-w-4xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/studio"
-              className="text-[14px] font-semibold text-[var(--color-ink-primary)]"
-            >
-              Repro
-            </Link>
-            <span
-              aria-hidden="true"
-              className="text-[var(--color-line-hairline)]"
-            >
-              /
-            </span>
-            <Link
-              href={`/studio/${campaignId}`}
-              className="text-[14px] text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
-            >
-              Board
-            </Link>
-            <span
-              aria-hidden="true"
-              className="text-[var(--color-line-hairline)]"
-            >
-              /
-            </span>
-            <span className="text-[14px] text-[var(--color-ink-secondary)] truncate max-w-[200px]">
-              {issue.title}
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-4xl px-6 py-8 space-y-8">
-        {/* Severity, Status, and Category */}
-        <div>
-          <div className="flex items-center gap-2 text-[13px] text-[var(--color-ink-secondary)]">
-            <span
-              className={
-                isVerified
-                  ? "text-[var(--color-accent)] font-semibold"
-                  : "text-[var(--color-ink-secondary)]"
-              }
-            >
-              {isVerified ? "Verified Issue" : "Active Issue"}
-            </span>
-            <span aria-hidden="true">·</span>
-            <span
-              className={
-                issue.severity === "CRITICAL"
-                  ? "text-[var(--color-alert)] font-semibold"
-                  : undefined
-              }
-            >
-              {SEVERITY_LABEL[issue.severity] ?? issue.severity}
-            </span>
+    <ConsoleShell
+      campaignName={campaign.title}
+      actions={
+        <ConsoleNavLink href={`/studio/${campaignId}`}>Board</ConsoleNavLink>
+      }
+    >
+      {/* Room for the action bar, which is fixed on every width. */}
+      <div className="pb-[calc(var(--console-topbar-h)+var(--space-6))]">
+        <div className="max-w-[var(--console-max)]">
+          {/* Severity, status and category, as plain text. No pills. */}
+          <div className="flex items-center gap-[var(--space-2)] text-[length:var(--type-meta-size)] text-[var(--ink-secondary)]">
+            <span>{SEVERITY_LABEL[issue.severity] ?? issue.severity}</span>
             <span aria-hidden="true">·</span>
             <span>{CATEGORY_LABEL[issue.category] ?? issue.category}</span>
+            {isVerified && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span className="text-[var(--state-verified)]">Verified</span>
+              </>
+            )}
           </div>
 
-          <div className="mt-2 flex items-baseline justify-between gap-6">
-            <h1 className="text-[22px] md:text-[26px] font-semibold tracking-[-0.02em] text-[var(--color-ink-primary)] leading-[1.2]">
+          <div className="mt-[var(--space-2)] flex items-baseline justify-between gap-[var(--space-6)]">
+            <h1 className="text-[length:var(--type-title-size)] leading-[var(--type-title-lh)] tracking-[var(--type-title-ls)] font-semibold text-[var(--ink-primary)]">
               {issue.title}
             </h1>
             <div className="shrink-0 text-right">
-              <span className="text-[26px] md:text-[32px] font-bold tabular-nums font-mono text-[var(--color-ink-primary)]">
+              <div className="text-[length:var(--type-title-size)] leading-[var(--type-title-lh)] font-semibold tabular-nums text-[var(--ink-primary)]">
                 {issue.occurrenceCount}
-              </span>
-              <div className="text-[12px] text-[var(--color-ink-secondary)]">
+              </div>
+              <div className="text-[length:var(--type-meta-size)] text-[var(--ink-tertiary)]">
                 {issue.occurrenceCount === 1 ? "report" : "reports"}
               </div>
             </div>
           </div>
-        </div>
 
-        {/* 1. Screenshots Grid at Top (§3.3) */}
-        {screenshots.length > 0 && (
-          <section aria-labelledby="shots-heading">
-            <h2
-              id="shots-heading"
-              className="text-[12px] font-semibold uppercase tracking-wider text-[var(--color-ink-secondary)] mb-3"
+          {/* Screenshots. No heading: six thumbnails do not need to be
+              announced, and an all-caps eyebrow is forbidden (UI_SPEC §2). */}
+          {screenshots.length > 0 && (
+            <section
+              aria-label="Report screenshots"
+              className="mt-[var(--space-6)]"
             >
-              Captured Screenshots
-            </h2>
-            <ScreenshotGrid screenshots={screenshots.slice(0, 6)} />
-          </section>
-        )}
+              <ScreenshotGrid screenshots={screenshots.slice(0, 6)} />
+            </section>
+          )}
 
-        {/* 2. Shared Traits as a Sentence Block in Full Measure (§3.3) */}
-        <section aria-labelledby="traits-heading">
+          {/* The traits sentence: its own block, nothing beside it. */}
           <TraitSentence sentence={issue.synthesizedTraits.sentence} />
-        </section>
 
-        {/* 3. Possible Duplicates (Merge candidates) */}
-        <PossibleDuplicates duplicates={duplicates} />
+          <PossibleDuplicates duplicates={duplicates} />
 
-        {/* 4. Occurrences List */}
-        <section aria-labelledby="occurrences-heading" className="space-y-4">
-          <div className="flex items-baseline justify-between border-b border-[var(--color-line-hairline)] pb-2">
-            <h2
-              id="occurrences-heading"
-              className="text-[16px] font-semibold text-[var(--color-ink-primary)]"
-            >
-              Occurrences ({occurrences.length})
-            </h2>
-            <span className="text-[12px] text-[var(--color-ink-secondary)]">
-              Sorted by newest
-            </span>
-          </div>
+          <section
+            aria-labelledby="occurrences-heading"
+            className="mt-[var(--space-8)]"
+          >
+            <div className="flex items-baseline justify-between border-b border-[var(--line-subtle)] pb-[var(--space-2)]">
+              <h2
+                id="occurrences-heading"
+                className="text-[length:var(--type-heading-size)] leading-[var(--type-heading-lh)] tracking-[var(--type-heading-ls)] font-[550] text-[var(--ink-primary)]"
+              >
+                {occurrences.length}{" "}
+                {occurrences.length === 1 ? "occurrence" : "occurrences"}
+              </h2>
+              <span className="text-[length:var(--type-meta-size)] text-[var(--ink-tertiary)]">
+                Newest first
+              </span>
+            </div>
 
-          <ul className="divide-y divide-[var(--color-line-hairline)]">
-            {occurrences.slice(0, 25).map((report) => {
-              const state = report.gameState as unknown as GameState;
-              const errorLines = report.consoleTail.filter((line) =>
-                /error|exception|fatal|uncaught/i.test(line),
-              );
+            <ul>
+              {occurrences.slice(0, 25).map((report) => {
+                const state = report.gameState as unknown as GameState;
+                const errorLines = report.consoleTail.filter((line) =>
+                  /error|exception|fatal|uncaught/i.test(line),
+                );
 
-              return (
-                <li key={report.id} className="py-4 space-y-2">
-                  <p className="text-[15px] leading-[1.5] text-[var(--color-ink-primary)]">
-                    {report.body}
-                  </p>
-                  <div className="flex items-center gap-2 text-[12px] text-[var(--color-ink-secondary)]">
-                    <span className="font-medium text-[var(--color-ink-primary)]">
-                      {(
-                        report as unknown as {
-                          reporter?: { displayName: string };
-                        }
-                      ).reporter?.displayName ?? "A tester"}
-                    </span>
-                    <span>·</span>
-                    <span>{state.scene}</span>
-                    <span>·</span>
-                    <span className="font-mono">
-                      pos({Math.round(state.x)}, {Math.round(state.y)},{" "}
-                      {Math.round(state.z)})
-                    </span>
-                  </div>
+                return (
+                  <li
+                    key={report.id}
+                    className="border-b border-[var(--line-subtle)] py-[var(--space-4)]"
+                  >
+                    <p className="max-w-[var(--body-measure)] text-[length:var(--type-body-size)] leading-[var(--type-body-lh)] text-[var(--ink-primary)]">
+                      {report.body}
+                    </p>
+                    <div className="mt-[var(--space-2)] flex flex-wrap items-center gap-[var(--space-2)] text-[length:var(--type-meta-size)] text-[var(--ink-tertiary)]">
+                      <span className="text-[var(--ink-secondary)]">
+                        {(
+                          report as unknown as {
+                            reporter?: { displayName: string };
+                          }
+                        ).reporter?.displayName ?? "A tester"}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span>{state.scene}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="tabular-nums">
+                        ({Math.round(state.x)}, {Math.round(state.y)},{" "}
+                        {Math.round(state.z)})
+                      </span>
+                    </div>
 
-                  {errorLines.length > 0 && (
-                    <div className="mt-2 p-3 bg-[var(--color-surface-sunken)] border border-[var(--color-line-hairline)] rounded-[var(--radius-sm)] overflow-x-auto">
-                      <pre className="font-mono text-[12px] leading-relaxed text-[var(--color-ink-secondary)]">
+                    {/* Console tail: one of exactly two places monospace is
+                        allowed. Own scroll, capped at 240px (V2 §5.3). */}
+                    {errorLines.length > 0 && (
+                      <pre className="mt-[var(--space-3)] max-h-[var(--console-tail-max)] overflow-auto rounded-[var(--radius-sm)] bg-[var(--surface-sunken)] p-[var(--space-3)] font-mono text-[length:var(--type-mono-size)] leading-[var(--type-mono-lh)] text-[var(--ink-secondary)]">
                         {errorLines.join("\n")}
                       </pre>
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
 
-          {occurrences.length > 25 && (
-            <p className="text-[13px] text-[var(--color-ink-secondary)]">
-              Showing the 25 most recent of {occurrences.length} occurrences.
-            </p>
-          )}
-        </section>
-      </main>
-
-      {/* Pinned Action Bar: Desktop bottom-right / Mobile fixed bottom bar (§3.3) */}
-      <div className="fixed bottom-0 inset-x-0 bg-[var(--color-surface-raised)] border-t border-[var(--color-line-hairline)] p-4 shadow-[var(--elevation-sheet)] pb-[env(safe-area-inset-bottom,16px)] z-20">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <span className="text-[13px] text-[var(--color-ink-secondary)] hidden sm:inline">
-            Status: <strong>{isVerified ? "Verified" : "Under Review"}</strong>
-          </span>
-          <div className="flex items-center gap-3 ml-auto">
-            <Link
-              href={`/studio/${campaignId}`}
-              className="px-4 py-2 min-h-[44px] md:min-h-[36px] text-[14px] font-[450] text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)] rounded-[var(--radius-sm)] border border-[var(--color-line-hairline)] transition-colors flex items-center"
-            >
-              Back to Board
-            </Link>
-            {!isVerified && <VerifyIssueButton issueId={issue.id} />}
-          </div>
+            {occurrences.length > 25 && (
+              <p className="mt-[var(--space-4)] text-[length:var(--type-meta-size)] text-[var(--ink-tertiary)]">
+                Showing the 25 most recent of {occurrences.length} occurrences.
+              </p>
+            )}
+          </section>
         </div>
       </div>
-    </div>
+
+      {/* Actions: bottom-right on desktop, a full bottom bar on mobile. */}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[var(--line-subtle)] bg-[var(--surface-raised)] px-[var(--console-pad)] py-[var(--space-3)] pb-[max(env(safe-area-inset-bottom),var(--space-3))]">
+        <div className="mx-auto flex max-w-[var(--console-max)] items-center justify-end gap-[var(--space-3)]">
+          <Link
+            href={`/studio/${campaignId}`}
+            className="hidden text-[length:var(--type-meta-size)] text-[var(--ink-secondary)] transition-colors hover:text-[var(--ink-primary)] sm:mr-auto sm:inline"
+          >
+            Back to board
+          </Link>
+          {isVerified ? (
+            <VerifiedLabel />
+          ) : (
+            <VerifyIssueButton issueId={issue.id} />
+          )}
+        </div>
+      </div>
+    </ConsoleShell>
   );
 }

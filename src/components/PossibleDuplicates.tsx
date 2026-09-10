@@ -42,36 +42,41 @@ export function PossibleDuplicates({
   };
 
   return (
-    <section aria-labelledby="possible-heading" className="mt-10">
-      <h2 id="possible-heading" className="text-label-lg text-ink">
+    <section aria-labelledby="possible-heading" className="mt-[var(--space-8)]">
+      <h2
+        id="possible-heading"
+        className="text-[length:var(--type-heading-size)] leading-[var(--type-heading-lh)] tracking-[var(--type-heading-ls)] font-[550] text-[var(--ink-primary)]"
+      >
         {duplicates.length} possible{" "}
         {duplicates.length === 1 ? "duplicate" : "duplicates"}
       </h2>
-      <p className="mt-1 max-w-measure text-label text-slate">
+      <p className="mt-[var(--space-1)] max-w-[var(--body-measure)] text-[length:var(--type-meta-size)] leading-[var(--type-meta-lh)] text-[var(--ink-secondary)]">
         Close enough to be this bug, not close enough to assume it. They are not
         counted in the occurrence count until you say so.
       </p>
 
-      <ul className="mt-4 border-t border-hairline">
+      <ul className="mt-[var(--space-4)] border-t border-[var(--line-subtle)]">
         {duplicates.map((duplicate) => (
           <li
             key={duplicate.id}
-            className="flex flex-wrap items-start justify-between gap-3 border-b border-hairline py-3"
+            className="flex flex-wrap items-start justify-between gap-[var(--space-3)] border-b border-[var(--line-subtle)] py-[var(--space-3)]"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-label-lg text-ink">{duplicate.body}</p>
-              <p className="mt-0.5 text-label text-slate">
+              <p className="text-[length:var(--type-ui-size)] text-[var(--ink-primary)]">
+                {duplicate.body}
+              </p>
+              <p className="mt-[var(--space-1)] text-[length:var(--type-meta-size)] text-[var(--ink-tertiary)]">
                 {duplicate.reporterName}
                 <span aria-hidden="true"> · </span>
                 {duplicate.scene}
               </p>
             </div>
-            <div className="flex shrink-0 gap-3 text-label">
+            <div className="flex shrink-0 gap-[var(--space-4)] text-[length:var(--type-meta-size)]">
               <button
                 type="button"
                 disabled={busy === duplicate.id}
                 onClick={() => void act(duplicate.id, "confirm")}
-                className="text-verified underline underline-offset-2 disabled:opacity-50"
+                className="text-[var(--accent-text)] underline underline-offset-2 disabled:opacity-50"
               >
                 Same bug
               </button>
@@ -79,7 +84,7 @@ export function PossibleDuplicates({
                 type="button"
                 disabled={busy === duplicate.id}
                 onClick={() => void act(duplicate.id, "split")}
-                className="text-slate underline underline-offset-2 hover:text-ink disabled:opacity-50"
+                className="text-[var(--ink-secondary)] underline underline-offset-2 hover:text-[var(--ink-primary)] disabled:opacity-50"
               >
                 Its own issue
               </button>

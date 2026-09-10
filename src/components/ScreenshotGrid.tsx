@@ -26,7 +26,7 @@ export function ScreenshotGrid({
   return (
     <>
       <div
-        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 ${className}`}
+        className={`grid grid-cols-1 gap-[var(--space-3)] sm:grid-cols-2 lg:grid-cols-3 ${className}`}
       >
         {screenshots.map((item, idx) => (
           <button
@@ -34,19 +34,22 @@ export function ScreenshotGrid({
             type="button"
             onClick={() => setLightboxIndex(idx)}
             aria-label={`View screenshot from scene ${item.scene ?? "unknown"}`}
-            className="group relative aspect-video w-full overflow-hidden rounded-[var(--radius-sm)] border border-[var(--color-line-hairline)] bg-[var(--color-surface-sunken)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] cursor-pointer text-left"
+            className="relative aspect-video w-full cursor-pointer overflow-hidden rounded-[var(--radius-xs)] border border-[var(--line-subtle)] bg-[var(--surface-sunken)] text-left"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={item.url}
-              alt={item.caption || `Report screenshot from scene ${item.scene ?? "unknown"}`}
+              alt={
+                item.caption ||
+                `Report screenshot from scene ${item.scene ?? "unknown"}`
+              }
               loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+              className="h-full w-full object-cover"
             />
             {item.scene && (
-              <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-[var(--radius-sm)] bg-black/60 text-white text-[11px] font-mono backdrop-blur-xs">
+              <span className="absolute bottom-[var(--space-2)] left-[var(--space-2)] rounded-[var(--radius-xs)] bg-[var(--surface-page)]/80 px-[var(--space-2)] py-[2px] text-[length:var(--type-meta-size)] text-[var(--ink-secondary)]">
                 {item.scene}
-              </div>
+              </span>
             )}
           </button>
         ))}
