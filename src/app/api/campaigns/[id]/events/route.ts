@@ -1,5 +1,7 @@
+import { db } from "@/server/db";
 import { campaignEvents } from "@/server/events";
 import type { CampaignEvent } from "@/server/events";
+import { getSession } from "@/server/session";
 
 /**
  * Server-Sent Events (SSE) route for real-time campaign updates (SPEC.md §0.5, §8).
@@ -18,6 +20,21 @@ export async function GET(
   props: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id: campaignId } = await props.params;
+
+  // The stream carries report bodies as they arrive -- a running description
+  // of an unreleased build, which is the thing testers sign an NDA about. It
+  // needs the same ownership check the board itself has.
+  const session = await getSession();
+  if (session?.studioId === undefined) {
+    return new Response("Not found", { status: 404 });
+  }
+  const campaign = await db.campaign.findUnique({
+    where: { id: campaignId },
+    select: { studioId: true },
+  });
+  if (campaign === null || campaign.studioId !== session.studioId) {
+    return new Response("Not found", { status: 404 });
+  }
 
   const encoder = new TextEncoder();
   let cleanup: (() => void) | null = null;
