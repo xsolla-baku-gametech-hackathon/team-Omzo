@@ -1,9 +1,11 @@
 import { describeSharedTraits } from "@/domain/triage/describe";
 import type { SharedTraits } from "@/domain/triage/describe";
 import type { GameState, SystemInfo } from "@/domain/triage/types";
+import { rebuildIssue } from "@/domain/triage/cluster";
 import { db } from "@/server/db";
+import { sharedTraitsOf, toPreparedReport } from "@/server/reportMapping";
 import { campaignEvents } from "@/server/events";
-import type { Issue, Report, Severity } from "@prisma/client";
+import type { Issue, Prisma, Report, Severity } from "@prisma/client";
 
 /**
  * Issue queries and shared-traits synthesis (SPEC.md §5.5, §8).
@@ -133,10 +135,16 @@ export async function getCampaignReportsStream(
  */
 export async function getIssueDetail(
   issueId: string,
+  studioId: string | undefined,
 ): Promise<IssueWithReports> {
+  if (studioId === undefined || studioId === "") {
+    throw new UnauthorizedIssueMutationError();
+  }
+
   const issue = await db.issue.findUnique({
     where: { id: issueId },
     include: {
+      campaign: { select: { studioId: true } },
       reports: {
         orderBy: { createdAt: "desc" },
         include: {
@@ -149,12 +157,20 @@ export async function getIssueDetail(
   if (issue === null) {
     throw new IssueNotFoundError(issueId);
   }
+  if (issue.campaign.studioId !== studioId) {
+    throw new UnauthorizedIssueMutationError();
+  }
 
+  // Only the counted occurrences. A possible duplicate is not part of this
+  // issue until a human says so, and a sentence that described 71 reports
+  // under a heading reading 58 would be quietly describing a different set.
   const synthesizedTraits = describeSharedTraits(
-    issue.reports.map((report) => ({
-      systemInfo: report.systemInfo as unknown as SystemInfo,
-      gameState: report.gameState as unknown as GameState,
-    })),
+    issue.reports
+      .filter((report) => !report.isPossibleDuplicate)
+      .map((report) => ({
+        systemInfo: report.systemInfo as unknown as SystemInfo,
+        gameState: report.gameState as unknown as GameState,
+      })),
   );
 
   return {
@@ -227,4 +243,191 @@ export async function verifyIssue(
   });
 
   return updated;
+}
+
+/**
+ * Rewrites every derived column on an issue from the reports that justify it.
+ *
+ * The issue table is a materialised view of its reports, so anything that
+ * changes which reports belong to it has to run this or the board starts
+ * showing a count that no longer matches what is underneath.
+ */
+async function persistRebuild(
+  tx: Prisma.TransactionClient,
+  issueId: string,
+  campaignId: string,
+): Promise<void> {
+  const [rows, campaignReportCount] = await Promise.all([
+    tx.report.findMany({ where: { issueId } }),
+    tx.report.count({ where: { campaignId } }),
+  ]);
+
+  const counted = rows
+    .filter((row) => !row.isPossibleDuplicate && !row.isNoise)
+    .map(toPreparedReport)
+    .sort((a, b) => a.createdAt - b.createdAt);
+
+  if (counted.length === 0) {
+    await tx.issue.delete({ where: { id: issueId } });
+    return;
+  }
+
+  const rebuilt = rebuildIssue(issueId, counted, [], campaignReportCount);
+
+  await tx.issue.update({
+    where: { id: issueId },
+    data: {
+      category: rebuilt.category,
+      severity: rebuilt.severity,
+      occurrenceCount: rebuilt.reports.length,
+      signature: rebuilt.signature,
+      sharedTraits: sharedTraitsOf(rebuilt),
+    },
+  });
+}
+
+async function ownedReport(
+  reportId: string,
+  studioId: string | undefined,
+): Promise<{ id: string; campaignId: string; issueId: string }> {
+  if (studioId === undefined || studioId === "") {
+    throw new UnauthorizedIssueMutationError();
+  }
+
+  const report = await db.report.findUnique({
+    where: { id: reportId },
+    select: {
+      id: true,
+      campaignId: true,
+      issueId: true,
+      isPossibleDuplicate: true,
+      campaign: { select: { studioId: true } },
+    },
+  });
+
+  if (report === null || report.issueId === null) {
+    throw new IssueNotFoundError(reportId);
+  }
+  if (report.campaign.studioId !== studioId) {
+    throw new UnauthorizedIssueMutationError();
+  }
+  if (!report.isPossibleDuplicate) {
+    throw new IssueNotFoundError(reportId);
+  }
+
+  return {
+    id: report.id,
+    campaignId: report.campaignId,
+    issueId: report.issueId,
+  };
+}
+
+/**
+ * Confirm: the borderline report really is this issue.
+ *
+ * The engine declined to decide, so a human did. That is the whole design --
+ * a wrongly merged report hides a real bug, so the band exists to hand the
+ * call to someone who can open both and look.
+ */
+export async function confirmDuplicate(
+  reportId: string,
+  studioId: string | undefined,
+): Promise<{ issueId: string; occurrenceCount: number }> {
+  const report = await ownedReport(reportId, studioId);
+
+  await db.$transaction(async (tx) => {
+    await tx.report.update({
+      where: { id: report.id },
+      data: { isPossibleDuplicate: false },
+    });
+    await persistRebuild(tx, report.issueId, report.campaignId);
+  });
+
+  const issue = await db.issue.findUnique({
+    where: { id: report.issueId },
+    select: { occurrenceCount: true },
+  });
+
+  campaignEvents.emit({
+    type: "issue_updated",
+    payload: {
+      campaignId: report.campaignId,
+      issueId: report.issueId,
+      title: "",
+      category: "",
+      severity: "",
+      occurrenceCount: issue?.occurrenceCount ?? 0,
+      status: "OPEN",
+    },
+  });
+
+  return {
+    issueId: report.issueId,
+    occurrenceCount: issue?.occurrenceCount ?? 0,
+  };
+}
+
+/**
+ * Split: it is its own bug, and becomes its own issue.
+ *
+ * The new issue is built by the same domain function that builds every other
+ * one, so a split issue is indistinguishable from one clustering opened
+ * itself -- there is no second kind of issue to reason about.
+ */
+export async function splitDuplicate(
+  reportId: string,
+  studioId: string | undefined,
+): Promise<{ issueId: string }> {
+  const report = await ownedReport(reportId, studioId);
+  const newIssueId = `issue_${report.id}`;
+
+  await db.$transaction(async (tx) => {
+    const row = await tx.report.findUniqueOrThrow({ where: { id: report.id } });
+    const campaignReportCount = await tx.report.count({
+      where: { campaignId: report.campaignId },
+    });
+
+    const built = rebuildIssue(
+      newIssueId,
+      [toPreparedReport(row)],
+      [],
+      campaignReportCount,
+    );
+
+    await tx.issue.create({
+      data: {
+        id: newIssueId,
+        campaignId: report.campaignId,
+        title: built.title,
+        category: built.category,
+        severity: built.severity,
+        firstReporterId: built.firstReporterId,
+        occurrenceCount: 1,
+        signature: built.signature,
+        sharedTraits: sharedTraitsOf(built),
+      },
+    });
+
+    await tx.report.update({
+      where: { id: report.id },
+      data: { issueId: newIssueId, isPossibleDuplicate: false },
+    });
+
+    await persistRebuild(tx, report.issueId, report.campaignId);
+  });
+
+  campaignEvents.emit({
+    type: "issue_created",
+    payload: {
+      campaignId: report.campaignId,
+      issueId: newIssueId,
+      title: "",
+      category: "",
+      severity: "",
+      occurrenceCount: 1,
+      status: "OPEN",
+    },
+  });
+
+  return { issueId: newIssueId };
 }
