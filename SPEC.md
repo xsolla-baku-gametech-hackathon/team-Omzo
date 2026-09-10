@@ -1,7 +1,7 @@
 # REPRO — Build Specification for Claude Code
 
 > **How to use this file.** Put it in the repo root as `SPEC.md`. Start Claude Code in the repo and say:
-> *"Read SPEC.md fully. Do not write any code yet. Summarise the plan back to me in 20 lines and list anything ambiguous. Then wait."*
+> _"Read SPEC.md fully. Do not write any code yet. Summarise the plan back to me in 20 lines and list anything ambiguous. Then wait."_
 > After you approve the summary, work through the phases in order. Never skip ahead.
 
 ---
@@ -26,8 +26,11 @@ contradicts an earlier line in this file, **the answer wins** and the section ha
 edited to match. Recorded here so a reviewer can see what was decided rather than assumed.
 
 **Environment.** Node 20 LTS, installed and pinned with fnm plus a committed `.nvmrc`;
-CI uses the same version. pnpm via `corepack`. Postgres in Docker on host port **5433**
-(container 5432), and `DATABASE_URL` uses 5433. Repo is public, named `repro`, commits
+CI uses the same version. pnpm via `corepack`. Postgres in Docker on host port **5434**
+(container 5432), and `DATABASE_URL` uses 5434. (5433 was the decision; it is
+occupied on the build machine by an unrelated container, so the next free port
+was taken. The reason for the decision — never collide with a default 5432 —
+is unchanged.) Repo is public, named `repro`, commits
 straight to `main`.
 
 **Scope.** Role is self-selected at register; a STUDIO registration also takes a studio
@@ -57,13 +60,13 @@ retries on failure).
 
 **Schema deltas**, all shipped in one migration:
 
-| Model | Delta |
-|---|---|
-| `User` | **+** `birthDate DateTime?` |
-| `Campaign` | **+** `revokedAt DateTime?` |
+| Model         | Delta                                                                                   |
+| ------------- | --------------------------------------------------------------------------------------- |
+| `User`        | **+** `birthDate DateTime?`                                                             |
+| `Campaign`    | **+** `revokedAt DateTime?`                                                             |
 | `AccessGrant` | **+** `issuanceCount Int @default(1)`, **+** `windowStartedAt DateTime @default(now())` |
-| `Report` | **−** `screenshotPath`, **+** `screenshotData String? @db.Text` |
-| `Issue` | **−** `centroid Float[]` |
+| `Report`      | **−** `screenshotPath`, **+** `screenshotData String? @db.Text`                         |
+| `Issue`       | **−** `centroid Float[]`                                                                |
 
 ---
 
@@ -94,20 +97,20 @@ Then it closes the loop: the studio verifies an issue, the first reporter is pai
 
 Locked. Do not substitute.
 
-| Layer | Choice | Why |
-|---|---|---|
-| Framework | Next.js 15, App Router, TypeScript strict | One deployable, server actions + route handlers, no separate API service to keep alive |
-| Runtime | Node 20 LTS, pinned via fnm + `.nvmrc`; pnpm via `corepack` | Node 26 is unproven against Next 15 + Prisma; do not gamble the build on it |
-| DB | PostgreSQL via Prisma | Local Docker in dev, Neon in prod |
-| Auth | Custom session: `jose` JWT in httpOnly cookie + `bcryptjs` | ~150 lines, fully testable, no provider outage risk |
-| Validation | `zod` on every boundary | — |
-| Styling | Tailwind CSS v4 + a small token layer | — |
-| Icons | `lucide-react` | — |
-| Fonts | `geist`, self-hosted | The offline rule applies to type too — no Google Fonts request at runtime |
-| Charts | none — build the two small visualisations by hand in SVG | A chart library for two visuals is dead weight |
-| Realtime | Server-Sent Events via a route handler | Simpler and more reliable than WebSockets on serverless |
-| Tests | `vitest` + `@testing-library/react` for two components: `IssueRow` and the overlay panel | — |
-| LLM (optional) | Anthropic Messages API, `claude-sonnet-4-6` | Enrichment only. Never on the critical path |
+| Layer          | Choice                                                                                   | Why                                                                                    |
+| -------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Framework      | Next.js 15, App Router, TypeScript strict                                                | One deployable, server actions + route handlers, no separate API service to keep alive |
+| Runtime        | Node 20 LTS, pinned via fnm + `.nvmrc`; pnpm via `corepack`                              | Node 26 is unproven against Next 15 + Prisma; do not gamble the build on it            |
+| DB             | PostgreSQL via Prisma                                                                    | Local Docker in dev, Neon in prod                                                      |
+| Auth           | Custom session: `jose` JWT in httpOnly cookie + `bcryptjs`                               | ~150 lines, fully testable, no provider outage risk                                    |
+| Validation     | `zod` on every boundary                                                                  | —                                                                                      |
+| Styling        | Tailwind CSS v4 + a small token layer                                                    | —                                                                                      |
+| Icons          | `lucide-react`                                                                           | —                                                                                      |
+| Fonts          | `geist`, self-hosted                                                                     | The offline rule applies to type too — no Google Fonts request at runtime              |
+| Charts         | none — build the two small visualisations by hand in SVG                                 | A chart library for two visuals is dead weight                                         |
+| Realtime       | Server-Sent Events via a route handler                                                   | Simpler and more reliable than WebSockets on serverless                                |
+| Tests          | `vitest` + `@testing-library/react` for two components: `IssueRow` and the overlay panel | —                                                                                      |
+| LLM (optional) | Anthropic Messages API, `claude-sonnet-4-6`                                              | Enrichment only. Never on the critical path                                            |
 
 **Deliberately not used:** pgvector (adds infra risk; at hackathon scale in-process similarity over a few hundred vectors is microseconds), Redis, any UI kit, NextAuth, any state management library beyond React state and server components. Also not used: Phaser — the demo game is ~300 lines of plain Canvas 2D; any server-side image library such as `sharp` — report screenshots are downscaled and encoded on the client; and any persisted vector store, `centroid` column or vocabulary table — see §5.2.
 
@@ -345,7 +348,7 @@ enum LedgerReason { ISSUE_VERIFIED FIRST_REPORTER_BONUS MANUAL_ADJUSTMENT }
 Notes for the implementer:
 
 - **Never store a raw IP.** `ipHash = sha256(ip + APP_SALT)`. Say so in the README; a judge will ask about GDPR.
-- **`LedgerEntry.idempotencyKey` is `@unique` and that uniqueness *is* the idempotency mechanism.** Insert, catch the unique-constraint violation, return the existing row. Do not implement this with a `SELECT` then `INSERT` — that races.
+- **`LedgerEntry.idempotencyKey` is `@unique` and that uniqueness _is_ the idempotency mechanism.** Insert, catch the unique-constraint violation, return the existing row. Do not implement this with a `SELECT` then `INSERT` — that races.
 - Balance is always `SUM(amount)` over the ledger. Never store a mutable balance column.
 - **No TF-IDF state is persisted.** There is no `centroid` column and no vocabulary table. A TF-IDF centroid cannot be interpreted without a fixed vocabulary ordering, and persisting a vocabulary is complexity this product does not need. On each ingest the campaign's vocabulary, IDF and every candidate issue's centroid are rebuilt in memory from the cached `Report.tokens` arrays — sub-millisecond at 400 reports, and it removes a whole class of stale-vector bugs. Record it in the README as a deliberate simplification.
 - `AccessGrant.watermarkId` is **globally** unique, allocated from a dedicated Postgres sequence. Forensics therefore needs no campaign picker: a decoded id names one person. The 16-bit payload caps the platform at 65,535 grants — state that ceiling in the README and say production widens the payload.
@@ -438,6 +441,7 @@ This is a real part of the product, not a slide. Build the three layers below, a
 A grant token is `base64url(payload) + "." + hmacSha256(payload, ACCESS_SECRET)` where payload is `{ grantId, campaignId, userId, watermarkId, exp }`.
 
 Rules:
+
 - TTL 15 minutes, configurable per campaign.
 - `nonce` is single-use for `DOWNLOAD` builds: first successful use sets `consumedAt`; later uses are rejected.
 - Bind to a UA hash. A mismatch is rejected with a clear message.
@@ -445,7 +449,7 @@ Rules:
 - Rate limit, enforced in the DB on that same row: if `now − windowStartedAt > 1h`, reset `windowStartedAt = now` and `issuanceCount = 1`; otherwise increment `issuanceCount` and reject above 5.
 - A grant is invalid the moment `campaign.revokedAt` is set or `campaign.status = CLOSED`. Revocation is immediate by construction and needs no sweep over grant rows.
 
-The demo depends on this: copying the URL into another browser must visibly fail. Make the rejection page explicit — *"This access link belongs to another tester. Request your own from the campaign page."*
+The demo depends on this: copying the URL into another browser must visibly fail. Make the rejection page explicit — _"This access link belongs to another tester. Request your own from the campaign page."_
 
 ### 6.2 Forensic watermark (`domain/watermark/`)
 
@@ -504,7 +508,7 @@ For the demo build a small **plain Canvas 2D** sample game — roughly 300 lines
 
 Do not produce a generic SaaS dashboard. Read `src/styles/tokens.css` as the only source of colour and type; no ad-hoc hex values in components.
 
-**The idea.** The subject is *collapsing many into few* — noise into signal. The interface should make that collapse visible rather than decorative. The board's job is to look like a place where a decision gets made, not a place where data is displayed.
+**The idea.** The subject is _collapsing many into few_ — noise into signal. The interface should make that collapse visible rather than decorative. The board's job is to look like a place where a decision gets made, not a place where data is displayed.
 
 **Palette.** Cool paper `#F1F3F2`; ink `#141A18`; a muted slate `#6E7B77` for secondary text; hairline `#D5DAD8`; one alert vermilion `#D2452B` reserved exclusively for CRITICAL; one deep teal `#0F5E58` reserved exclusively for verified/clustered state. Those last two colours appear nowhere else — that restraint is what makes the board readable at a glance.
 
@@ -514,7 +518,7 @@ Do not produce a generic SaaS dashboard. Read `src/styles/tokens.css` as the onl
 
 **The issue board.** Two columns, asymmetric. Left 62%: issues as full-width rows, not cards — severity as a 3px left rule, title, occurrence count set large on the right, category as plain text. Right 38%: the live raw stream, quieter, smaller, monochrome, so the eye is drawn left. The contrast between the two columns is the whole argument of the product, so let the layout make it.
 
-**Issue detail.** Screenshot grid at the top. Below it, the shared-traits panel stated as a sentence, not a chart: *"16 of 18 occurrences on AMD GPUs. 17 of 18 in Chrome. All within 4 units of (128, 0, 96)."* A sentence a developer can act on beats a pie chart.
+**Issue detail.** Screenshot grid at the top. Below it, the shared-traits panel stated as a sentence, not a chart: _"16 of 18 occurrences on AMD GPUs. 17 of 18 in Chrome. All within 4 units of (128, 0, 96)."_ A sentence a developer can act on beats a pie chart.
 
 **Motion.** One orchestrated moment only: the triage collapse. Everything else is instant. Respect `prefers-reduced-motion`.
 
@@ -527,40 +531,40 @@ Do not produce a generic SaaS dashboard. Read `src/styles/tokens.css` as the onl
 Commit continuously inside each phase. Do not start a phase before the previous one's exit criteria pass.
 
 **Phase 0 — Foundation (~90 min)**
-Node 20 pinned via fnm + `.nvmrc`, pnpm via corepack, Next.js + TS strict, Tailwind v4, ESLint, Prettier, Vitest, Prisma, docker-compose (Postgres on host port **5433**, container 5432), `.env.example`, GitHub Actions running typecheck + lint + test on Node 20, README skeleton, tokens.css.
-*Exit:* CI green on an empty app.
+Node 20 pinned via fnm + `.nvmrc`, pnpm via corepack, Next.js + TS strict, Tailwind v4, ESLint, Prettier, Vitest, Prisma, docker-compose (Postgres on host port **5434**, container 5432), `.env.example`, GitHub Actions running typecheck + lint + test on Node 20, README skeleton, tokens.css.
+_Exit:_ CI green on an empty app.
 
 **Phase 1 — Triage domain (~3 h). Build this before any UI.**
 All of `src/domain/triage/` plus the full test suite from §5.7. No database, no React.
-*Exit:* all triage tests pass; the 400-report fixture collapses to ~12 issues, order-independent by count ±1 and by top-3.
+_Exit:_ all triage tests pass; the 400-report fixture collapses to ~12 issues, order-independent by count ±1 and by top-3.
 
 **Phase 2 — Data + ingest (~2 h)**
 Prisma schema, one migration carrying every §0.5 delta, `ingestService`, `POST /api/ingest`, seed script that posts ~400 fixture reports and ~25 noise reports through the real endpoint.
-*Exit:* `pnpm seed` produces ~12 issues in the DB; re-running is idempotent.
+_Exit:_ `pnpm seed` produces ~12 issues in the DB; re-running is idempotent.
 
 **Phase 3 — Auth, campaigns, NDA (~2.5 h)**
 Session, register/login (role self-selected; a STUDIO registration also takes a studio name and creates the `Studio` in the same transaction; `birthDate` collected), role split, studio campaign CRUD, NDA sign flow with a server-side age check, access grant issuance, in-place re-issuance and validation.
-*Exit:* copying an access link to another browser is rejected; the authorisation test passes.
+_Exit:_ copying an access link to another browser is rejected; the authorisation test passes.
 
 **Phase 4 — Studio board (~3 h)**
 Issue board, issue detail with shared traits, raw stream, SSE live updates with an automatic 3-second polling fallback when SSE errors or closes, verify action.
-*Exit:* a report posted by curl appears on the board within a second and lands in the right issue.
+_Exit:_ a report posted by curl appears on the board within a second and lands in the right issue.
 
 **Phase 5 — Rewards (~1.5 h)**
 Ledger, first-reporter payout, idempotency, signal score, `/me` page, leaderboard.
-*Exit:* the 50-parallel-verify test yields exactly one ledger row.
+_Exit:_ the 50-parallel-verify test yields exactly one ledger row.
 
 **Phase 6 — Watermark + forensics (~2 h)**
 Encode/decode domain functions including 2×/3× downscale tolerance, session overlay compositing, the "Export frame for forensics" button, `/studio/[id]/forensics` upload-and-identify page with no campaign picker.
-*Exit:* round-trip test passes; a frame exported from the running session page decodes to the right tester by name.
+_Exit:_ round-trip test passes; a frame exported from the running session page decodes to the right tester by name.
 
 **Phase 7 — Overlay + demo game (~2 h)**
 Overlay script, console proxy, plain Canvas 2D demo game with three planted bugs, embed on the session page.
-*Exit:* F1 in the demo game produces a report that clusters onto a seeded issue.
+_Exit:_ F1 in the demo game produces a report that clusters onto a seeded issue.
 
 **Phase 8 — Polish (~2.5 h)**
 Landing page and hero, empty states, error states, mobile, keyboard focus, README, architecture diagram, deploy to Vercel + Neon.
-*Exit:* a fresh clone runs from `README.md` in under five minutes.
+_Exit:_ a fresh clone runs from `README.md` in under five minutes.
 
 **Freeze.** Three hours before the deadline, stop writing features. Only bug fixes, README, and rehearsal.
 
@@ -585,6 +589,7 @@ The GitHub award at this event counts **accepted commits**, and Best Code is rev
 The README is judged. Write it last, when the product is real, and keep it under two screens before the fold.
 
 Must contain, in this order:
+
 1. One sentence: what Repro does.
 2. A GIF, 10 seconds: F1 in the game → report appears → 40 collapse to 6 → verify → coin paid.
 3. Live demo link.

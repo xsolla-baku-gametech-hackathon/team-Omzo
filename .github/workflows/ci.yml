@@ -13,7 +13,7 @@ jobs:
       # prisma generate reads the datasource at generate time. Nothing in this
       # job connects to a database — format, lint, typecheck, test and build
       # are all offline — so a syntactically valid URL is enough.
-      DATABASE_URL: "postgresql://repro:repro@localhost:5433/repro?schema=public"
+      DATABASE_URL: "postgresql://repro:repro@localhost:5434/repro?schema=public"
 
     steps:
       - uses: actions/checkout@v4

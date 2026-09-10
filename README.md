@@ -9,7 +9,7 @@ Repro turns 400 raw playtest reports into 12 issues a developer can actually fix
 
 ```bash
 pnpm install          # Node 20 — see .nvmrc
-pnpm db:up            # Postgres in Docker, host port 5433
+pnpm db:up            # Postgres in Docker, host port 5434
 pnpm dev
 ```
 

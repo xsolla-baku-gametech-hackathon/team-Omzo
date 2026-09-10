@@ -10,8 +10,10 @@ services:
       POSTGRES_PASSWORD: repro
       POSTGRES_DB: repro
     ports:
-      # Host 5433 deliberately, to avoid colliding with a local 5432.
-      - "5433:5432"
+      # A deliberate non-default host port, to avoid colliding with any
+      # other Postgres on this machine. 5433 was the first choice but is
+      # taken here by an unrelated container.
+      - "5434:5432"
     volumes:
       - repro-pgdata:/var/lib/postgresql/data
     healthcheck:
