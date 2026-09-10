@@ -40,3 +40,85 @@ body {
     min-height: 44px;
   }
 }
+
+/* ── Bloom primitives — UI_SPEC_V2_DARK.md §2 ──────────────────────────
+   Stage surfaces only. There is none of this anywhere in the Console,
+   with the single exception of .edge-lit on the merge modal and the
+   report panel, where a raised surface earns a rim (§5.4).
+
+   Every layer is pointer-events: none and belongs to a section wrapper,
+   never to a content element; content sits above at z-index 1. Nothing
+   here animates: never animate a blur or a gradient position, so under
+   prefers-reduced-motion these render static at no extra cost. */
+
+.bloom-halo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--bloom-halo-w);
+  height: var(--bloom-halo-h);
+  /* The `at 50% 100%` anchor is what makes an arc rather than a blob: the
+     gradient's centre sits on the bottom edge, so only its upper half
+     renders. */
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 100%,
+    var(--accent-glow) 0%,
+    var(--bloom-halo-mid) 38%,
+    transparent 72%
+  );
+  filter: blur(var(--bloom-halo-blur));
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* The mirror, for the closing call to action: anchored at the bottom of
+   its section so the arc curves upward (§4.6). */
+.bloom-halo-up {
+  background: radial-gradient(
+    ellipse 50% 50% at 50% 0%,
+    var(--accent-glow) 0%,
+    var(--bloom-halo-mid) 38%,
+    transparent 72%
+  );
+}
+
+.bloom-ambient {
+  position: absolute;
+  width: var(--bloom-ambient-size);
+  height: var(--bloom-ambient-size);
+  background: radial-gradient(
+    circle,
+    var(--bloom-ambient-tint) 0%,
+    transparent 65%
+  );
+  filter: blur(var(--bloom-ambient-blur));
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* A hairline of light along a surface's top edge. The detail that makes a
+   card look built rather than filled. */
+.edge-lit {
+  position: relative;
+}
+
+.edge-lit::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--edge-lit-peak) 50%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Content above any bloom in the same wrapper. */
+.stage-content {
+  position: relative;
+  z-index: 1;
+}
