@@ -260,6 +260,10 @@ export const TOKEN_SYNONYMS: ReadonlyMap<string, string> = new Map([
   ["chugs", "performance"],
   ["chugging", "performance"],
   ["hitching", "performance"],
+  ["choppy", "performance"],
+  ["slideshow", "performance"],
+  ["sluggish", "performance"],
+  ["janky", "performance"],
   ["hitches", "performance"],
   // collision family
   ["clipped", "collision"],
