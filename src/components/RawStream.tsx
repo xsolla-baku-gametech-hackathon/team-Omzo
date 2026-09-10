@@ -1,13 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 /**
- * The right-hand column: reports exactly as they arrived.
+ * RawStream — UI_SPEC.md §3.2, §5
  *
- * Deliberately quieter than the board beside it -- smaller type, one colour,
- * no severity, no emphasis (SPEC.md §8). The contrast between the two columns
- * is the product's whole argument: this is what a studio reads today, and the
- * column on the left is what Repro turns it into. Styling this one to compete
- * would undo the point.
+ * The right-hand column: monochrome, 13px, --ink-secondary.
+ * Timestamps in a fixed-width column.
+ * New reports enter with a 220ms fade and a 1-second --accent-soft flash.
+ * aria-live="polite" for accessibility.
  */
 
 export interface StreamReport {
@@ -34,40 +35,73 @@ export function RawStream({
   readonly reports: readonly StreamReport[];
   readonly now: number;
 }) {
+  const [latestReportId, setLatestReportId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (reports.length > 0) {
+      const topId = reports[0].id;
+      setLatestReportId(topId);
+      const timer = setTimeout(() => {
+        setLatestReportId(null);
+      }, 1000); // 1-second flash
+      return () => clearTimeout(timer);
+    }
+  }, [reports]);
+
   if (reports.length === 0) {
     return (
-      <p className="px-4 py-6 text-label text-slate">
-        Nothing yet. Reports appear here the moment a tester presses F1.
+      <p className="py-6 px-4 text-[13px] text-[var(--color-ink-secondary)] leading-relaxed">
+        Nothing yet. Reports appear here the moment a tester submits one.
       </p>
     );
   }
 
+  // Virtualise / limit window to 100 items per budget (§8)
+  const visible = reports.slice(0, 100);
+
   return (
-    <ol className="divide-y divide-hairline">
-      {reports.map((report) => (
-        <li key={report.id} className="px-4 py-3">
-          <p className="text-label text-slate">
-            <span className="tabular-nums">
+    <ol
+      aria-live="polite"
+      className="divide-y divide-[var(--color-line-hairline)] bg-[var(--color-surface-raised)]"
+    >
+      {visible.map((report) => {
+        const isFlashing = report.id === latestReportId;
+
+        return (
+          <li
+            key={report.id}
+            style={{
+              backgroundColor: isFlashing ? "var(--color-accent-soft)" : "transparent",
+              transition: "background-color 220ms ease-out",
+            }}
+            className="px-4 py-3 flex items-start gap-3"
+          >
+            <span className="w-10 shrink-0 text-right tabular-nums text-[12px] text-[var(--color-ink-secondary)] pt-0.5">
               {timeAgo(report.createdAt, now)}
             </span>
-            <span aria-hidden="true"> · </span>
-            <span>{report.scene}</span>
-            {report.isNoise && (
-              <>
-                <span aria-hidden="true"> · </span>
-                <span title="Filed, but not counted towards any issue">
-                  set aside
-                </span>
-              </>
-            )}
-          </p>
-          <p
-            className={`mt-0.5 text-label ${report.isNoise ? "text-slate" : "text-ink"}`}
-          >
-            {report.body}
-          </p>
-        </li>
-      ))}
+
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <div className="flex items-baseline gap-2 text-[12px] text-[var(--color-ink-secondary)]">
+                <span className="truncate">{report.scene}</span>
+                {report.isNoise && (
+                  <span className="italic text-[11px] text-[var(--color-ink-tertiary)]">
+                    (noise)
+                  </span>
+                )}
+              </div>
+              <p
+                className={`text-[13px] leading-[1.4] line-clamp-2 ${
+                  report.isNoise
+                    ? "text-[var(--color-ink-tertiary)]"
+                    : "text-[var(--color-ink-primary)]"
+                }`}
+              >
+                {report.body}
+              </p>
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }

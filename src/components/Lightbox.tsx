@@ -58,6 +58,7 @@ export function Lightbox({
         </button>
 
         <div className="relative w-full aspect-video bg-black flex items-center justify-center rounded-[var(--radius-md)] overflow-hidden shadow-[var(--elevation-modal)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={current.url}
             alt={current.alt || "Report screenshot"}

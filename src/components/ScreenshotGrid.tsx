@@ -36,6 +36,7 @@ export function ScreenshotGrid({
             aria-label={`View screenshot from scene ${item.scene ?? "unknown"}`}
             className="group relative aspect-video w-full overflow-hidden rounded-[var(--radius-sm)] border border-[var(--color-line-hairline)] bg-[var(--color-surface-sunken)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] cursor-pointer text-left"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={item.url}
               alt={item.caption || `Report screenshot from scene ${item.scene ?? "unknown"}`}

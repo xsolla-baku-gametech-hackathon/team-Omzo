@@ -2,17 +2,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ForensicsUpload } from "@/components/ForensicsUpload";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { getStudioCampaign } from "@/server/services/campaignService";
 import { getSession } from "@/server/session";
 
-/**
- * Forensics (SPEC.md §6.2).
- *
- * The page is reached from a campaign, but the search is not scoped to one:
- * watermark ids are globally unique, so there is nothing to pick from. Upload
- * a frame, get a name back — and only ever a name from one of your own
- * campaigns.
- */
 export default async function ForensicsPage(props: {
   params: Promise<{ campaignId: string }>;
 }) {
@@ -27,55 +20,45 @@ export default async function ForensicsPage(props: {
   if (campaign === null) notFound();
 
   return (
-    <main className="min-h-screen bg-paper">
-      <header className="border-b border-hairline px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-baseline gap-3">
-          <Link href="/studio" className="font-semibold tracking-tight">
-            Repro
-          </Link>
-          <span className="text-hairline">/</span>
-          <Link
-            href={`/studio/${campaignId}`}
-            className="text-label text-slate hover:text-ink"
-          >
-            {campaign.title}
-          </Link>
-          <span className="text-hairline">/</span>
-          <span className="text-label text-ink">Forensics</span>
+    <main className="min-h-screen bg-[var(--color-surface-page)] text-[var(--color-ink-primary)] font-sans">
+      <header className="border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] px-6 py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link href="/studio" className="font-semibold text-sm text-[var(--color-ink-primary)]">
+              Repro
+            </Link>
+            <span className="text-[var(--color-line-hairline)]">/</span>
+            <Link
+              href={`/studio/${campaignId}`}
+              className="text-xs text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
+            >
+              {campaign.title}
+            </Link>
+            <span className="text-[var(--color-line-hairline)]">/</span>
+            <span className="text-xs text-[var(--color-ink-primary)] font-medium">Forensics</span>
+          </div>
+          <ThemeToggle />
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--color-ink-primary)]">
             Trace a leaked frame
           </h1>
-          <p className="mt-3 text-body text-slate max-w-measure">
-            Every build session carries the tester&rsquo;s own identifier in the
-            brightness of the frame. Upload an image and this reads it back.
+          <p className="mt-2 text-[15px] text-[var(--color-ink-secondary)] max-w-[68ch] leading-relaxed">
+            Every build session embeds the tester&rsquo;s identifier into pixel brightness. Upload a lossless PNG to recover their identity.
           </p>
         </div>
 
         <ForensicsUpload />
 
-        <section className="border-t border-hairline pt-6">
-          <h2 className="text-label-lg text-ink">
-            What this can and cannot do
+        <section className="border-t border-[var(--color-line-hairline)] pt-8 space-y-4">
+          <h2 className="text-[14px] font-semibold text-[var(--color-ink-primary)]">
+            What forensic watermarking can and cannot do
           </h2>
-          <p className="mt-2 text-label text-slate max-w-measure">
-            The mark survives a lossless screenshot and a two- or three-fold
-            reduction, which covers a frame captured on a high-density display
-            and shared as a PNG. It does not survive re-encoding as JPEG, a
-            filter, a crop, or a photograph of a monitor. When the pattern is
-            gone this page says so rather than guessing, because the cost of a
-            confident wrong answer here is an accusation against the wrong
-            person.
-          </p>
-          <p className="mt-3 text-label text-slate max-w-measure">
-            Nor is the mark strictly invisible. A two-unit step in brightness
-            disappears into a mid-tone, but against a near-black scene it is
-            around seven per cent contrast and a careful eye can find it. That
-            is the honest cost of a mark that also survives being screenshotted.
+          <p className="text-[13px] text-[var(--color-ink-secondary)] max-w-[68ch] leading-relaxed">
+            The watermark survives lossless PNG capture, high-DPI scaling, and 2× or 3× downscales. It cannot survive lossy JPEG compression, heavy Instagram-style filters, or photographing a physical screen with a phone camera. When the mark is unrecoverable, this screen states so plainly rather than guessing.
           </p>
         </section>
       </div>

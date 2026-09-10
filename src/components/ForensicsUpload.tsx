@@ -1,15 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-
-/**
- * Upload a frame, get at most one name back (SPEC.md §6.2).
- *
- * The four outcomes are rendered as four visibly different things rather than
- * one result panel with different text in it. A studio reading this screen is
- * deciding whether to accuse someone, and "no watermark found" must never be
- * mistakable at a glance for a name.
- */
+import { Button } from "@/components/Button";
 
 type Result =
   | { kind: "no_watermark" }
@@ -54,7 +46,7 @@ export function ForensicsUpload() {
       }
       setResult(json as Result);
     } catch {
-      setError("The upload did not complete. Try again.");
+      setError("The upload did not complete. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -69,14 +61,13 @@ export function ForensicsUpload() {
           const file = event.dataTransfer.files[0];
           if (file) void identify(file);
         }}
-        className="border border-dashed border-hairline bg-raised rounded-sm p-10 text-center"
+        className="border border-dashed border-[var(--color-line-strong)] bg-[var(--color-surface-sunken)] rounded-[var(--radius-md)] p-10 text-center transition-colors"
       >
-        <p className="text-label-lg text-ink">
-          Drop a leaked frame here, or choose a file.
+        <p className="text-[16px] font-semibold text-[var(--color-ink-primary)]">
+          Drop a leaked frame here, or choose a file
         </p>
-        <p className="mt-2 text-label text-slate max-w-measure mx-auto">
-          A lossless PNG exported from a session. Screenshots that have been
-          re-saved as JPEG carry no recoverable watermark.
+        <p className="mt-2 text-[13px] text-[var(--color-ink-secondary)] max-w-[68ch] mx-auto leading-relaxed">
+          Lossless PNG exported directly from a session. Screenshots that have been re-encoded as JPEG carry no watermark.
         </p>
 
         <input
@@ -89,103 +80,90 @@ export function ForensicsUpload() {
             if (file) void identify(file);
           }}
         />
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={busy}
-          className="mt-5 py-2 px-4 bg-ink text-paper text-label rounded-sm disabled:opacity-50"
-        >
-          {busy ? "Reading the frame…" : "Choose a frame"}
-        </button>
+        <div className="mt-5">
+          <Button
+            type="button"
+            variant="primary"
+            onClick={() => inputRef.current?.click()}
+            disabled={busy}
+          >
+            {busy ? "Reading frame…" : "Choose a frame"}
+          </Button>
+        </div>
 
         {fileName !== null && (
-          <p className="mt-3 text-label text-slate font-mono">{fileName}</p>
+          <p className="mt-3 text-[12px] text-[var(--color-ink-secondary)] font-mono">
+            {fileName}
+          </p>
         )}
       </div>
 
       {error !== null && (
-        <p className="border-l-3 border-l-sev-critical pl-4 py-2 text-label-lg text-ink">
+        <div className="border-l-[3px] border-l-[var(--color-alert)] bg-[var(--color-surface-raised)] pl-4 py-3 text-[14px] text-[var(--color-ink-primary)] rounded-r-[var(--radius-sm)]">
           {error}
-        </p>
+        </div>
       )}
 
+      {/* Outcome: No Watermark (§3.6) */}
       {result?.kind === "no_watermark" && (
-        <div className="border border-hairline rounded-sm p-6">
-          <p className="text-label-lg text-ink">No watermark in this frame.</p>
-          <p className="mt-2 text-label text-slate max-w-measure">
-            That means this image cannot be traced — not that it was not leaked.
-            A frame that has been re-encoded, filtered, cropped or photographed
-            off a screen loses the pattern.
+        <div className="border border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] rounded-[var(--radius-md)] p-6 space-y-2">
+          <p className="text-[16px] font-semibold text-[var(--color-ink-primary)]">
+            No watermark recovered
+          </p>
+          <p className="text-[14px] text-[var(--color-ink-secondary)] max-w-[68ch] leading-relaxed">
+            This frame may have been re-encoded, cropped, or captured from a build issued before watermarking was enabled.
           </p>
         </div>
       )}
 
+      {/* Outcome: Unknown Grant */}
       {result?.kind === "unknown_grant" && (
-        <div className="border border-hairline rounded-sm p-6">
-          <p className="text-label-lg text-ink">
-            Watermark {result.watermarkId} was read, but no access grant carries
-            it.
+        <div className="border border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] rounded-[var(--radius-md)] p-6 space-y-2">
+          <p className="text-[16px] font-semibold text-[var(--color-ink-primary)]">
+            Watermark #{result.watermarkId} detected, but no matching grant exists
           </p>
-          <p className="mt-2 text-label text-slate max-w-measure">
-            The grant may have been deleted. There is no one to name.
+          <p className="text-[14px] text-[var(--color-ink-secondary)] max-w-[68ch] leading-relaxed">
+            The access record may have expired or been purged.
           </p>
         </div>
       )}
 
+      {/* Outcome: Other Studio */}
       {result?.kind === "other_studio" && (
-        <div className="border border-hairline rounded-sm p-6">
-          <p className="text-label-lg text-ink">
-            This frame belongs to another studio&rsquo;s campaign.
+        <div className="border border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] rounded-[var(--radius-md)] p-6 space-y-2">
+          <p className="text-[16px] font-semibold text-[var(--color-ink-primary)]">
+            This frame belongs to another studio&rsquo;s campaign
           </p>
-          <p className="mt-2 text-label text-slate max-w-measure">
-            Watermark {result.watermarkId} was read cleanly, but the tester
-            behind it signed an agreement with someone else, so their identity
-            is not ours to show you.
+          <p className="text-[14px] text-[var(--color-ink-secondary)] max-w-[68ch] leading-relaxed">
+            Watermark #{result.watermarkId} was read, but confidentiality agreements are bound to the originating studio.
           </p>
         </div>
       )}
 
+      {/* Outcome: Identified Tester (§3.6) */}
       {result?.kind === "identified" && (
-        <div className="border border-hairline rounded-sm overflow-hidden">
-          <div className="border-l-3 border-l-verified bg-raised p-6">
-            <p className="text-label text-slate">This frame was issued to</p>
-            <p className="mt-1 text-2xl font-semibold tracking-tight text-ink">
-              {result.displayName}
-            </p>
-            <p className="mt-1 text-label text-slate font-mono">
-              {result.email}
+        <div className="border border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] rounded-[var(--radius-md)] overflow-hidden shadow-xs">
+          <div className="border-l-[3px] border-l-[var(--color-accent)] p-6 space-y-1">
+            <span className="text-[12px] uppercase font-semibold text-[var(--color-ink-secondary)] tracking-wider">
+              Identified Access Grant
+            </span>
+            <h3 className="text-[22px] font-semibold text-[var(--color-ink-primary)]">
+              Tester #{result.watermarkId} — {result.displayName}
+            </h3>
+            <p className="text-[13px] text-[var(--color-ink-secondary)]">
+              Confidence {result.confidence.toFixed(2)} · Campaign &ldquo;{result.campaignTitle}&rdquo; · Access granted{" "}
+              {new Date(result.issuedAt).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </p>
           </div>
 
-          <dl className="grid sm:grid-cols-2 gap-x-8 gap-y-4 p-6 text-label">
-            <div>
-              <dt className="text-slate">Campaign</dt>
-              <dd className="text-ink">{result.campaignTitle}</dd>
-            </div>
-            <div>
-              <dt className="text-slate">Access issued</dt>
-              <dd className="text-ink">
-                {new Date(result.issuedAt).toLocaleString()}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate">Watermark</dt>
-              <dd className="text-ink font-mono">{result.watermarkId}</dd>
-            </div>
-            <div>
-              <dt className="text-slate">Read strength</dt>
-              <dd className="text-ink font-mono">
-                {(result.confidence * 100).toFixed(0)}% over {result.frameWidth}
-                ×{result.frameHeight}
-              </dd>
-            </div>
-          </dl>
-
-          <p className="border-t border-hairline px-6 py-4 text-label text-slate max-w-measure">
-            Read strength is how clearly the frame carried the pattern. It is
-            not a probability that this person leaked anything — it says the
-            image came from their session, not what they did with it.
-          </p>
+          <div className="border-t border-[var(--color-line-hairline)] px-6 py-4 bg-[var(--color-surface-sunken)] text-[12px] text-[var(--color-ink-secondary)] leading-relaxed">
+            Confidence represents how clearly the watermark was retrieved from pixel luminance. It confirms the frame originated from this tester&apos;s build session.
+          </div>
         </div>
       )}
     </div>

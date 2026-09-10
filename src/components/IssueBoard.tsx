@@ -1,21 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { IssueRow } from "@/components/IssueRow";
 import { RawStream } from "@/components/RawStream";
+import { EmptyState } from "@/components/EmptyState";
 import type { StreamReport } from "@/components/RawStream";
 import type { IssueCategory, Severity } from "@/domain/triage/types";
-
-/**
- * The core screen (SPEC.md §8).
- *
- * Two columns, asymmetric on purpose. Left: the issues, as full-width rows
- * with the occurrence count set large. Right: the same reports as they
- * arrived, quieter and smaller. A studio reads the right column today and a
- * developer loses two days to it; the left column is what Repro turns that
- * into. The layout is the argument, so the columns are not balanced.
- */
 
 export interface BoardIssue {
   readonly id: string;
@@ -44,10 +35,16 @@ interface BoardPayload {
   readonly stats: BoardStats;
 }
 
-/** SSE is the mechanism; polling is what keeps the demo alive when it isn't. */
 const POLL_INTERVAL_MS = 3000;
-
 type Connection = "live" | "polling";
+type SortOption = "severity" | "count" | "newest";
+
+const SEVERITY_ORDER: Record<Severity, number> = {
+  CRITICAL: 4,
+  HIGH: 3,
+  MEDIUM: 2,
+  LOW: 1,
+};
 
 export function IssueBoard({
   campaignId,
@@ -61,14 +58,17 @@ export function IssueBoard({
   readonly initialStats: BoardStats;
 }) {
   const [issues, setIssues] = useState<readonly BoardIssue[]>(initialIssues);
-  const [reports, setReports] =
-    useState<readonly StreamReport[]>(initialReports);
+  const [reports, setReports] = useState<readonly StreamReport[]>(initialReports);
   const [stats, setStats] = useState<BoardStats>(initialStats);
   const [connection, setConnection] = useState<Connection>("live");
   const [verifying, setVerifying] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
-  // Rendered relative times need a clock, and reading Date.now() during
-  // render would differ between server and client and hydrate mismatched.
+  // Sorting & Mobile tabs
+  const [sortOption, setSortOption] = useState<SortOption>("severity");
+  const [mobileTab, setMobileTab] = useState<"issues" | "stream">("issues");
+  const [unseenLiveCount, setUnseenLiveCount] = useState(0);
+
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 10_000);
@@ -95,9 +95,6 @@ export function IssueBoard({
     );
   }, [campaignId]);
 
-  // A burst of reports would otherwise mean a burst of refetches. Seeding a
-  // campaign posts hundreds in a row, which is exactly the case that would
-  // melt the board if every one triggered its own round trip.
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleRefresh = useCallback(() => {
     if (pending.current !== null) return;
@@ -139,17 +136,16 @@ export function IssueBoard({
             createdAt: payload.createdAt,
           },
           ...current,
-        ].slice(0, 50),
+        ].slice(0, 100),
       );
       setStats((current) => ({
         ...current,
         totalReports: current.totalReports + 1,
         noiseCount: current.noiseCount + (payload.isNoise ? 1 : 0),
       }));
+      setUnseenLiveCount((c) => c + 1);
     });
 
-    // An occurrence count changing is applied from the payload; a new issue
-    // needs the full row, so that one goes back to the server.
     source.addEventListener("issue_updated", (event) => {
       const payload = JSON.parse((event as MessageEvent<string>).data) as {
         issueId: string;
@@ -174,10 +170,6 @@ export function IssueBoard({
 
     source.addEventListener("issue_created", () => scheduleRefresh());
     source.addEventListener("issue_verified", () => scheduleRefresh());
-
-    // The fallback exists because the venue Wi-Fi will fail and because SSE
-    // through a proxy is not something to bet a demo on. It engages on its
-    // own; nobody has to notice.
     source.onerror = () => startPolling();
 
     return () => {
@@ -199,74 +191,200 @@ export function IssueBoard({
     }
   };
 
+  const copyCampaignLink = () => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const link = `${origin}/play/${campaignId}/nda`;
+    navigator.clipboard.writeText(link).then(() => {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    });
+  };
+
+  // Sorted issues list
+  const sortedIssues = useMemo(() => {
+    const list = [...issues];
+    switch (sortOption) {
+      case "severity":
+        return list.sort(
+          (a, b) =>
+            SEVERITY_ORDER[b.severity] - SEVERITY_ORDER[a.severity] ||
+            b.occurrenceCount - a.occurrenceCount,
+        );
+      case "count":
+        return list.sort((a, b) => b.occurrenceCount - a.occurrenceCount);
+      case "newest":
+        return list; // Preserves backend newest order
+      default:
+        return list;
+    }
+  }, [issues, sortOption]);
+
   const counted = stats.totalReports - stats.noiseCount;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[62fr_38fr]">
-      <section aria-labelledby="board-heading">
-        <div className="mb-4 flex items-baseline justify-between gap-4">
-          <h2 id="board-heading" className="text-label-lg text-ink">
-            {stats.totalIssues} issues
-            <span className="text-slate"> from {counted} reports</span>
-          </h2>
-          <span className="text-label text-slate">
-            {connection === "live" ? "Live" : "Reconnecting, polling"}
-          </span>
-        </div>
+    <div className="space-y-6">
+      {/* Mobile Tab Bar (<1024px) */}
+      <div className="flex lg:hidden border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-page)]">
+        <button
+          type="button"
+          onClick={() => setMobileTab("issues")}
+          className={`flex-1 py-2.5 text-[14px] font-medium border-b-2 text-center transition-colors ${
+            mobileTab === "issues"
+              ? "border-[var(--color-accent)] text-[var(--color-ink-primary)] font-semibold"
+              : "border-transparent text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
+          }`}
+        >
+          Issues ({stats.totalIssues})
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMobileTab("stream");
+            setUnseenLiveCount(0);
+          }}
+          className={`flex-1 py-2.5 text-[14px] font-medium border-b-2 text-center transition-colors flex items-center justify-center gap-1.5 ${
+            mobileTab === "stream"
+              ? "border-[var(--color-accent)] text-[var(--color-ink-primary)] font-semibold"
+              : "border-transparent text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
+          }`}
+        >
+          <span>Live Stream</span>
+          {unseenLiveCount > 0 && mobileTab !== "stream" && (
+            <span className="w-2 h-2 rounded-full bg-[var(--color-accent)]" />
+          )}
+        </button>
+      </div>
 
-        {issues.length === 0 ? (
-          <div className="border border-hairline bg-raised px-4 py-10 text-center">
-            <p className="text-label-lg text-ink">No issues yet</p>
-            <p className="mx-auto mt-1 max-w-measure text-label text-slate">
-              Issues appear as testers report. Send the campaign link to your
-              testers, or press F1 in the session to file the first one.
-            </p>
+      {/* Asymmetric Desktop Layout: 62% Left, 38% Right, 32px Gutter, No Divider (§3.2) */}
+      <div className="grid gap-8 lg:grid-cols-[62%_38%] items-start">
+        {/* Left Column: Triage Issues */}
+        <section
+          aria-labelledby="board-heading"
+          className={mobileTab === "issues" ? "block" : "hidden lg:block"}
+        >
+          {/* Header & Inline Sorting Chips */}
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
+            <div>
+              <h2 id="board-heading" className="text-[16px] md:text-[18px] font-semibold text-[var(--color-ink-primary)]">
+                {stats.totalIssues} issues
+                <span className="text-[var(--color-ink-secondary)] font-normal"> from {counted} reports</span>
+              </h2>
+            </div>
+
+            {/* Sorting Chips */}
+            <div className="flex items-center gap-1.5 text-[12px]">
+              <span className="text-[var(--color-ink-secondary)] mr-1 hidden sm:inline">Sort:</span>
+              <button
+                type="button"
+                onClick={() => setSortOption("severity")}
+                className={`px-2.5 py-1 rounded-[var(--radius-sm)] transition-colors ${
+                  sortOption === "severity"
+                    ? "bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] font-medium"
+                    : "bg-[var(--color-surface-sunken)] text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
+                }`}
+              >
+                Severity
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortOption("count")}
+                className={`px-2.5 py-1 rounded-[var(--radius-sm)] transition-colors ${
+                  sortOption === "count"
+                    ? "bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] font-medium"
+                    : "bg-[var(--color-surface-sunken)] text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
+                }`}
+              >
+                Occurrence
+              </button>
+              <button
+                type="button"
+                onClick={() => setSortOption("newest")}
+                className={`px-2.5 py-1 rounded-[var(--radius-sm)] transition-colors ${
+                  sortOption === "newest"
+                    ? "bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] font-medium"
+                    : "bg-[var(--color-surface-sunken)] text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
+                }`}
+              >
+                Newest
+              </button>
+            </div>
           </div>
-        ) : (
-          <ol className="border-t border-hairline">
-            {issues.map((issue) => (
-              <li key={issue.id} className="relative">
-                <IssueRow
-                  id={issue.id}
-                  campaignId={campaignId}
-                  title={issue.title}
-                  category={issue.category}
-                  severity={issue.severity}
-                  occurrenceCount={issue.occurrenceCount}
-                  status={issue.status}
-                />
-                {issue.status !== "VERIFIED" && (
-                  <button
-                    type="button"
-                    onClick={() => void verify(issue.id)}
-                    disabled={verifying === issue.id}
-                    className="absolute right-4 bottom-3 text-label text-slate underline underline-offset-2 hover:text-ink disabled:opacity-50"
-                  >
-                    {verifying === issue.id ? "Verifying…" : "Verify"}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
 
-      <section
-        aria-labelledby="stream-heading"
-        className="lg:border-l lg:border-hairline lg:pl-6"
-      >
-        <div className="mb-4 flex items-baseline justify-between gap-4">
-          <h2 id="stream-heading" className="text-label-lg text-slate">
-            As it arrived
-          </h2>
-          <span className="text-label text-slate tabular-nums">
-            {stats.totalReports}
-          </span>
-        </div>
-        <div className="border-t border-hairline">
-          <RawStream reports={reports} now={now} />
-        </div>
-      </section>
+          {/* Issue List or Empty State */}
+          {issues.length === 0 ? (
+            <EmptyState
+              title="No reports yet"
+              description="Share the campaign access link with testers, or play the session yourself to file the first issue."
+              action={
+                <button
+                  type="button"
+                  onClick={copyCampaignLink}
+                  className="px-4 py-2 bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] text-[13px] font-medium rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity"
+                >
+                  {copiedLink ? "✓ Link Copied!" : "Copy Campaign Access Link"}
+                </button>
+              }
+            />
+          ) : (
+            <ol className="border-t border-[var(--color-line-hairline)] bg-[var(--color-surface-page)] divide-y divide-[var(--color-line-hairline)]">
+              {sortedIssues.map((issue) => (
+                <li key={issue.id} className="relative group">
+                  <IssueRow
+                    id={issue.id}
+                    campaignId={campaignId}
+                    title={issue.title}
+                    category={issue.category}
+                    severity={issue.severity}
+                    occurrenceCount={issue.occurrenceCount}
+                    status={issue.status}
+                  />
+                  {issue.status !== "VERIFIED" && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        void verify(issue.id);
+                      }}
+                      disabled={verifying === issue.id}
+                      className="absolute right-4 bottom-2.5 text-[12px] text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)] underline underline-offset-2 disabled:opacity-50 transition-colors"
+                    >
+                      {verifying === issue.id ? "Verifying…" : "Verify"}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+
+        {/* Right Column: Live Raw Stream */}
+        <section
+          aria-labelledby="stream-heading"
+          className={mobileTab === "stream" ? "block" : "hidden lg:block"}
+        >
+          <div className="mb-4 flex items-baseline justify-between gap-4">
+            <h2 id="stream-heading" className="text-[14px] font-medium text-[var(--color-ink-secondary)]">
+              As it arrived
+            </h2>
+            <div className="flex items-center gap-3 text-[12px] text-[var(--color-ink-secondary)]">
+              <span className="tabular-nums font-mono">{stats.totalReports} total</span>
+              <span className="flex items-center gap-1">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    connection === "live" ? "bg-[var(--color-accent)]" : "bg-[var(--color-warn)] animate-pulse"
+                  }`}
+                />
+                {connection === "live" ? "Live" : "Polling"}
+              </span>
+            </div>
+          </div>
+
+          <div className="border border-[var(--color-line-hairline)] rounded-[var(--radius-sm)] overflow-hidden bg-[var(--color-surface-raised)]">
+            <RawStream reports={reports} now={now} />
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

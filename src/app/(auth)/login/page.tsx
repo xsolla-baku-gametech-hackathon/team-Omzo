@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,23 +43,29 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-sm border border-hairline bg-raised p-8 rounded-sm">
+    <main className="min-h-screen bg-[var(--color-surface-page)] flex items-center justify-center p-6 text-[var(--color-ink-primary)] font-sans relative">
+      <div className="absolute top-6 right-6">
+        <ThemeToggle />
+      </div>
+
+      <div className="w-full max-w-sm border border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] p-8 rounded-[var(--radius-md)] shadow-xs">
         <div className="mb-6">
           <Link
             href="/"
-            className="text-xs uppercase tracking-wider text-slate hover:text-ink transition-colors"
+            className="text-xs font-semibold text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)] transition-colors"
           >
             ← Repro
           </Link>
-          <h1 className="text-xl font-semibold mt-2 tracking-tight">Sign in</h1>
-          <p className="text-sm text-slate mt-1">
+          <h1 className="text-xl font-semibold mt-2 tracking-tight text-[var(--color-ink-primary)]">
+            Sign in
+          </h1>
+          <p className="text-xs text-[var(--color-ink-secondary)] mt-1">
             Access playtesting campaigns or your studio board.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-sm">
+          <div className="mb-4 p-3 bg-[var(--color-alert-soft)] border border-[var(--color-alert)]/20 text-[var(--color-ink-primary)] text-xs rounded-[var(--radius-sm)]">
             {error}
           </div>
         )}
@@ -67,7 +74,7 @@ export default function LoginPage() {
           <div>
             <label
               htmlFor="email"
-              className="block text-xs font-medium text-slate uppercase mb-1"
+              className="block text-xs font-medium text-[var(--color-ink-secondary)] uppercase mb-1"
             >
               Email address
             </label>
@@ -77,15 +84,15 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-hairline bg-paper text-ink text-sm rounded-sm focus:outline-none focus:border-ink"
-              placeholder="developer@studio.dev"
+              className="w-full px-3 py-2 border border-[var(--color-line-hairline)] bg-[var(--color-surface-page)] text-[var(--color-ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--color-accent)]"
+              placeholder="alex@studio.dev"
             />
           </div>
 
           <div>
             <label
               htmlFor="password"
-              className="block text-xs font-medium text-slate uppercase mb-1"
+              className="block text-xs font-medium text-[var(--color-ink-secondary)] uppercase mb-1"
             >
               Password
             </label>
@@ -95,7 +102,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-hairline bg-paper text-ink text-sm rounded-sm focus:outline-none focus:border-ink"
+              className="w-full px-3 py-2 border border-[var(--color-line-hairline)] bg-[var(--color-surface-page)] text-[var(--color-ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--color-accent)]"
               placeholder="••••••••"
             />
           </div>
@@ -103,15 +110,15 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 bg-ink text-paper text-sm font-medium rounded-sm hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="w-full py-2.5 px-4 bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] text-sm font-medium rounded-[var(--radius-sm)] hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            {loading ? "Signing in..." : "Continue"}
+            {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-hairline text-center text-xs text-slate">
+        <div className="mt-6 pt-4 border-t border-[var(--color-line-hairline)] text-center text-xs text-[var(--color-ink-secondary)]">
           Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-ink underline font-medium">
+          <Link href="/register" className="text-[var(--color-ink-primary)] underline font-medium">
             Register
           </Link>
         </div>
