@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    env:
+      # prisma generate reads the datasource at generate time. Nothing in this
+      # job connects to a database — format, lint, typecheck, test and build
+      # are all offline — so a syntactically valid URL is enough.
+      DATABASE_URL: "postgresql://repro:repro@localhost:5433/repro?schema=public"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pinned version from package.json#packageManager.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Ordered cheapest-first, so a formatting slip fails in seconds rather
+      # than after a build.
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
