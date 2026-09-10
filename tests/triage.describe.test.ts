@@ -48,7 +48,7 @@ describe("describeSharedTraits", () => {
       observation({ x: 126, z: 94 }),
     ]);
 
-    expect(traits.sentence).toContain("all within");
+    expect(traits.sentence).toContain("All within");
     expect(traits.sentence).toContain("in atrium");
     expect(traits.scene).toBe("atrium");
   });
@@ -107,5 +107,18 @@ describe("describeSharedTraits", () => {
       "No occurrences recorded yet.",
     );
     expect(describeSharedTraits([]).total).toBe(0);
+  });
+});
+
+describe("sentence shape", () => {
+  it("starts every clause with a capital", () => {
+    const traits = describeSharedTraits([
+      ...many(9, { gpu: "AMD Radeon RX 6800", browser: "Chrome 131" }),
+      observation({ gpu: "AMD Radeon RX 6800", browser: "Chrome 131" }),
+    ]);
+
+    for (const clause of traits.sentence.replace(/\.$/, "").split(". ")) {
+      expect(clause[0]).toBe(clause[0].toUpperCase());
+    }
   });
 });

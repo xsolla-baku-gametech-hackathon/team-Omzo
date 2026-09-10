@@ -113,7 +113,7 @@ export function describeSharedTraits(
   const sentence =
     parts.length === 0
       ? `${total} ${total === 1 ? "occurrence" : "occurrences"} with no shared hardware or location pattern.`
-      : `${capitalise(parts.join(". "))}.`;
+      : `${parts.map(capitalise).join(". ")}.`;
 
   return {
     sentence,
