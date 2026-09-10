@@ -3,16 +3,14 @@ import Link from "next/link";
 import type { IssueCategory, Severity } from "@/domain/triage/types";
 
 /**
- * One issue on the board.
+ * IssueRow — UI_SPEC.md §3.2, §4
  *
- * A full-width row, not a card (SPEC.md §8): severity as a 3px left rule, the
- * title, the category as plain text, and the occurrence count set large on
- * the right. The count is the number a developer scans down the column for,
- * so it gets the display size and nothing else competes with it.
+ * Full-width row (72px target height), 3px left rule for severity,
+ * title at --type-heading, secondary metadata at --type-meta,
+ * category as plain text, occurrence count right-aligned in tabular font.
  *
- * Every colour comes from tokens.css. The vermilion belongs to CRITICAL and
- * the teal to verified, and neither appears anywhere else -- that restraint is
- * what makes the board readable at a glance rather than decorated.
+ * Hover raises the row background to --surface-raised only.
+ * "N similar issues — review" text link rendered in --accent.
  */
 
 export interface IssueRowProps {
@@ -23,7 +21,7 @@ export interface IssueRowProps {
   readonly severity: Severity;
   readonly occurrenceCount: number;
   readonly status: string;
-  /** Reports held for one-click confirm/split, not counted as occurrences. */
+  /** Reports or similar issues held for review in the 0.25–0.40 band. */
   readonly possibleDuplicateCount?: number;
   readonly isSelected?: boolean;
 }
@@ -35,7 +33,7 @@ const SEVERITY_RULE: Record<Severity, string> = {
   LOW: "border-l-sev-low",
 };
 
-/** Sentence case, not caps. §8: no all-caps labels, anywhere. */
+/** Sentence case, not all-caps. */
 const SEVERITY_LABEL: Record<Severity, string> = {
   CRITICAL: "Critical",
   HIGH: "High",
@@ -72,54 +70,70 @@ export function IssueRow({
       data-severity={severity}
       data-issue-id={id}
       className={[
-        "flex items-start justify-between gap-4 border-b border-hairline",
-        "border-l-[3px] px-4 py-3.5 transition-colors",
+        "flex items-center justify-between gap-4 border-b border-[var(--color-line-hairline)]",
+        "border-l-[3px] px-4 py-3 min-h-[72px] transition-colors focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]",
         SEVERITY_RULE[severity],
-        isSelected ? "bg-raised" : "bg-paper hover:bg-raised",
+        isSelected
+          ? "bg-[var(--color-surface-raised)]"
+          : "bg-[var(--color-surface-page)] hover:bg-[var(--color-surface-raised)]",
       ].join(" ")}
     >
       <div className="min-w-0 flex-1">
-        <div className="mb-1 flex flex-wrap items-center gap-x-2 text-label text-slate">
-          <span
-            data-testid="issue-severity-label"
-            className={severity === "CRITICAL" ? "text-critical" : undefined}
-          >
-            {SEVERITY_LABEL[severity]}
-          </span>
-          <span aria-hidden="true">·</span>
-          <span data-testid="issue-category-label">
-            {CATEGORY_LABEL[category]}
-          </span>
-          {isVerified && (
-            <>
-              <span aria-hidden="true">·</span>
+        <div className="flex flex-col gap-0.5">
+          {/* Main line: Title + Category */}
+          <div className="flex items-baseline gap-2">
+            <span className="text-[16px] md:text-[18px] font-[550] leading-[1.35] tracking-[-0.01em] text-[var(--color-ink-primary)] truncate">
+              {title}
+            </span>
+            <span
+              data-testid="issue-category-label"
+              className="text-[13px] font-[450] text-[var(--color-ink-secondary)] shrink-0 hidden sm:inline"
+            >
+              {CATEGORY_LABEL[category]}
+            </span>
+          </div>
+
+          {/* Subline: Metadata + Similar issues review */}
+          <div className="flex flex-wrap items-center gap-x-2 text-[13px] font-[450] text-[var(--color-ink-secondary)] leading-[1.4]">
+            <span
+              data-testid="issue-severity-label"
+              className={severity === "CRITICAL" ? "text-critical" : undefined}
+            >
+              {SEVERITY_LABEL[severity]}
+            </span>
+            <span aria-hidden="true" className="text-hairline">·</span>
+            <span className="sm:hidden">{CATEGORY_LABEL[category]}</span>
+            <span aria-hidden="true" className="sm:hidden text-hairline">·</span>
+            {isVerified && (
+              <>
+                <span
+                  data-testid="issue-verified-badge"
+                  className="text-verified font-medium"
+                >
+                  Verified
+                </span>
+                <span aria-hidden="true" className="text-hairline">·</span>
+              </>
+            )}
+
+            {possibleDuplicateCount > 0 && (
               <span
-                data-testid="issue-verified-badge"
-                className="text-verified"
+                data-testid="issue-possible-count"
+                className="text-verified font-medium hover:underline"
               >
-                Verified
+                {possibleDuplicateCount}{" "}
+                {possibleDuplicateCount === 1
+                  ? "possible duplicate to review"
+                  : "possible duplicates to review"}
               </span>
-            </>
-          )}
+            )}
+          </div>
         </div>
-
-        <p className="text-label-lg text-ink">{title}</p>
-
-        {possibleDuplicateCount > 0 && (
-          <p
-            data-testid="issue-possible-count"
-            className="mt-1 text-label text-slate"
-          >
-            {possibleDuplicateCount} possible{" "}
-            {possibleDuplicateCount === 1 ? "duplicate" : "duplicates"} to
-            confirm
-          </p>
-        )}
       </div>
 
       <span
         data-testid="issue-occurrence-count"
-        className="text-figure shrink-0 tabular-nums text-ink"
+        className="text-[18px] md:text-[22px] font-[600] shrink-0 tabular-nums text-[var(--color-ink-primary)] tracking-[-0.02em] text-right pl-2"
       >
         {occurrenceCount}
       </span>
