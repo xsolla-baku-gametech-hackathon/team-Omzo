@@ -104,31 +104,43 @@ export function hashUserAgent(userAgent: string): string {
   return createHash("sha256").update(userAgent.trim()).digest("hex");
 }
 
+export class WatermarkIdSpaceExhaustedError extends Error {
+  constructor() {
+    super(
+      "This platform has issued all 65,535 forensic identities. Widening the watermark payload is required before further grants can be made.",
+    );
+    this.name = "WatermarkIdSpaceExhaustedError";
+  }
+}
+
 /**
- * Allocates a globally unique 16-bit watermarkId (1 to 65535) from Postgres sequence.
+ * Allocates a globally unique 16-bit watermarkId from a Postgres sequence.
+ *
+ * The sequence is created by a migration rather than on demand, and there is
+ * deliberately no fallback. The obvious one -- max(watermarkId) + 1 -- is a
+ * race that ends with two testers sharing a forensic identity, and a decoded
+ * frame then names the wrong person with full confidence. Failing to issue a
+ * grant is recoverable; accusing the wrong tester is not.
  */
 async function allocateWatermarkId(
   tx: Prisma.TransactionClient,
 ): Promise<number> {
   try {
-    await tx.$executeRawUnsafe(
-      `CREATE SEQUENCE IF NOT EXISTS watermark_id_seq MINVALUE 1 MAXVALUE 65535 CYCLE;`,
-    );
-    const result = await tx.$queryRawUnsafe<
+    const rows = await tx.$queryRaw<
       { nextval: bigint | number | string }[]
-    >(`SELECT nextval('watermark_id_seq') as nextval;`);
-    if (result && result.length > 0) {
-      return Number(result[0].nextval);
+    >`SELECT nextval('watermark_id_seq') AS nextval`;
+    return Number(rows[0].nextval);
+  } catch (error) {
+    // The sequence is declared NO CYCLE, so exhaustion arrives here as an
+    // error rather than as a quietly reused id.
+    if (
+      error instanceof Error &&
+      /reached maximum value|nextval/i.test(error.message)
+    ) {
+      throw new WatermarkIdSpaceExhaustedError();
     }
-  } catch {
-    // Fallback if raw SQL fails
+    throw error;
   }
-
-  const highest = await tx.accessGrant.findFirst({
-    orderBy: { watermarkId: "desc" },
-    select: { watermarkId: true },
-  });
-  return ((highest?.watermarkId ?? 0) % 65535) + 1;
 }
 
 /**
