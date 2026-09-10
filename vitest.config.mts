@@ -19,6 +19,10 @@ export default defineConfig({
           name: "domain",
           environment: "node",
           include: ["tests/**/*.test.ts", "src/domain/**/*.test.ts"],
+          // tests/integration needs a real database, and this project must
+          // not. Without the exclusion the glob above swallows it and
+          // `pnpm test` stops being runnable from a cold clone.
+          exclude: ["tests/integration/**"],
         },
       },
       {
