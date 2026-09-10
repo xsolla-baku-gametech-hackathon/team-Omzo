@@ -47,7 +47,9 @@ export function decodeNibble(codeword: number): DecodedNibble {
   const b4 = (c >> 4) & 1; // d1
   const b5 = (c >> 5) & 1; // d2
   const b6 = (c >> 6) & 1; // d3
-  const b7 = (c >> 7) & 1; // p4
+  // bit 7 is p4, the overall parity bit. It is deliberately not read on its
+  // own: it is covered by the whole-codeword parity count below, which is
+  // what distinguishes a single error from a double one.
 
   // Syndromes s1, s2, s3
   const s1 = b0 ^ b2 ^ b4 ^ b6;
