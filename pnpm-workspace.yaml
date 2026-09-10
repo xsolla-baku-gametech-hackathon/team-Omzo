@@ -1,0 +1,4 @@
+# unrs-resolver ships a native binary used by eslint-plugin-import-x, which
+# eslint-config-next depends on. It has to build, or lint fails to resolve.
+allowBuilds:
+  unrs-resolver: true
