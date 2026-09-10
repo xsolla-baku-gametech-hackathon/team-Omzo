@@ -1,4 +1,14 @@
-# unrs-resolver ships a native binary used by eslint-plugin-import-x, which
-# eslint-config-next depends on. It has to build, or lint fails to resolve.
+# pnpm 12 refuses to run a dependency's install scripts unless it is named
+# here. CI cannot answer an interactive prompt, so every decision is explicit.
 allowBuilds:
+  # Native resolver behind eslint-config-next. Lint cannot resolve without it.
   unrs-resolver: true
+  # tsx compiles the Prisma seed script with it.
+  esbuild: true
+  # Prisma downloads and positions its query engine binaries here.
+  prisma: true
+  "@prisma/client": true
+  "@prisma/engines": true
+  # Optional native accelerators we do not need. Both fall back to pure JS.
+  msgpackr-extract: false
+  workerd: false

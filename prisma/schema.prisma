@@ -1,0 +1,12 @@
+// The models land in Phase 2, as one migration carrying every §0.5 delta.
+// This file exists from Phase 0 so CI can validate it and generate a client
+// before typecheck.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

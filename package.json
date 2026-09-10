@@ -15,9 +15,17 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "postinstall": "prisma generate",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:reset": "prisma migrate reset --force",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/client": "^6.19.3",
     "next": "15.5.25",
     "react": "19.1.0",
     "react-dom": "19.1.0"
@@ -35,7 +43,9 @@
     "eslint-config-prettier": "^10.1.8",
     "jsdom": "^30.0.1",
     "prettier": "^3.9.6",
+    "prisma": "6.19.3",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5",
     "vitest": "^5.0.0"
   }
