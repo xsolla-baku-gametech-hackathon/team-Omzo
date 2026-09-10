@@ -9,15 +9,15 @@ import {
 import { getSession } from "@/server/session";
 
 const createCampaignSchema = z.object({
-  title: z.string().min(2).max(120),
-  pitch: z.string().min(10).max(1000),
-  testFocus: z.string().min(10).max(1000),
+  title: z.string().trim().min(2, "Title must be at least 2 characters").max(120),
+  pitch: z.string().trim().min(1, "Pitch cannot be empty").max(1000),
+  testFocus: z.string().trim().min(1, "Test focus cannot be empty").max(1000),
   buildKind: z.enum(["WEB_EMBED", "DOWNLOAD", "EXTERNAL_LINK"]),
-  buildUrl: z.string().min(1).max(500),
-  ndaBodyMd: z.string().min(20).max(10000),
-  maxTesters: z.number().int().positive().default(200),
-  rewardPoolTotal: z.number().int().nonnegative().default(0),
-  rewardPerIssue: z.number().int().positive().default(50),
+  buildUrl: z.string().trim().min(1, "Build URL is required").max(500),
+  ndaBodyMd: z.string().trim().min(1, "NDA text is required").max(10000),
+  maxTesters: z.coerce.number().int().positive().default(200),
+  rewardPoolTotal: z.coerce.number().int().nonnegative().default(0),
+  rewardPerIssue: z.coerce.number().int().positive().default(50),
 });
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -63,10 +63,13 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const parsed = createCampaignSchema.safeParse(payload);
   if (!parsed.success) {
+    const issuesSummary = parsed.error.issues
+      .map((i) => `${i.path.join(".") || "field"}: ${i.message}`)
+      .join("; ");
     return NextResponse.json(
       {
         error: "validation_error",
-        message: "Invalid campaign details.",
+        message: issuesSummary || "Invalid campaign details.",
         issues: parsed.error.issues.map((i) => ({
           path: i.path.join("."),
           message: i.message,

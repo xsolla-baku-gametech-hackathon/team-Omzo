@@ -413,12 +413,15 @@ export function startDemoGame(target: HTMLCanvasElement): void {
     }),
   };
 
-  document.addEventListener("keydown", (e) => {
+  const handleKeyDown = (e: KeyboardEvent): void => {
     keys[e.key] = true;
-  });
-  document.addEventListener("keyup", (e) => {
+  };
+  const handleKeyUp = (e: KeyboardEvent): void => {
     keys[e.key] = false;
-  });
+  };
+
+  document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("keyup", handleKeyUp);
 
   // Start ambient audio after first interaction.
   const onInteract = (): void => {
@@ -429,12 +432,25 @@ export function startDemoGame(target: HTMLCanvasElement): void {
   document.addEventListener("click", onInteract);
   document.addEventListener("keydown", onInteract);
 
+  activeCleanups = () => {
+    document.removeEventListener("keydown", handleKeyDown);
+    document.removeEventListener("keyup", handleKeyUp);
+    document.removeEventListener("click", onInteract);
+    document.removeEventListener("keydown", onInteract);
+  };
+
   loop();
 }
+
+let activeCleanups: (() => void) | null = null;
 
 export function stopDemoGame(): void {
   if (animId) cancelAnimationFrame(animId);
   animId = 0;
+  if (activeCleanups) {
+    activeCleanups();
+    activeCleanups = null;
+  }
   stopAudio();
   drones.length = 0;
   delete window.__repro;

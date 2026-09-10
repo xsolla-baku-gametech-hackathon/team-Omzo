@@ -87,11 +87,27 @@ export function WatermarkedFrame({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Create an offscreen canvas to snapshot the current frame and embed the watermark
+    // without interrupting the running game loop.
+    const offscreen = document.createElement("canvas");
+    offscreen.width = FRAME_WIDTH;
+    offscreen.height = FRAME_HEIGHT;
+    const ctx = offscreen.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return;
+
+    ctx.drawImage(canvas, 0, 0, FRAME_WIDTH, FRAME_HEIGHT);
+    const imageData = ctx.getImageData(0, 0, FRAME_WIDTH, FRAME_HEIGHT);
+    const marked = embedWatermark(
+      { width: imageData.width, height: imageData.height, data: imageData.data },
+      watermarkId,
+    );
+    const out = ctx.createImageData(FRAME_WIDTH, FRAME_HEIGHT);
+    out.data.set(marked.data);
+    ctx.putImageData(out, 0, 0);
+
     // PNG, never JPEG, and never downscaled. A +/-2 delta does not survive a
-    // lossy re-encode, which is exactly why the report screenshots in §7 --
-    // downscaled and JPEG'd on the client -- carry no watermark and are never
-    // presented as if they did.
-    canvas.toBlob((blob) => {
+    // lossy re-encode.
+    offscreen.toBlob((blob) => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -121,13 +137,24 @@ export function WatermarkedFrame({
             </kbd>{" "}
             to report a bug. Use arrow keys or WASD to move, space to jump.
           </p>
-          <button
-            type="button"
-            onClick={exportFrame}
-            className="shrink-0 py-2 px-4 border border-hairline text-label rounded-sm hover:bg-raised"
-          >
-            Export frame for forensics
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                import("@/overlay/overlay").then((m) => m.toggleOverlay());
+              }}
+              className="shrink-0 py-2 px-4 bg-ink text-paper text-label font-medium rounded-sm hover:opacity-90 transition-opacity"
+            >
+              Report Bug (F1)
+            </button>
+            <button
+              type="button"
+              onClick={exportFrame}
+              className="shrink-0 py-2 px-4 border border-hairline text-label rounded-sm hover:bg-raised transition-colors"
+            >
+              Export frame for forensics
+            </button>
+          </div>
         </div>
 
         <div className="text-[11px] text-slate font-mono flex flex-wrap gap-x-6 gap-y-1">

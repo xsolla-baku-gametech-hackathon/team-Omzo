@@ -57,8 +57,8 @@ export function collectSystemInfo(): SystemInfoData {
       os: detectOS(ua),
       browser: detectBrowser(ua),
       gpuRenderer: getGpuRenderer(),
-      screen: `${screen.width}x${screen.height}`,
-      memoryGb: typeof mem === "number" ? mem : undefined,
+      screen: `${typeof screen !== "undefined" ? screen.width : 0}x${typeof screen !== "undefined" ? screen.height : 0}`,
+      memoryGb: typeof mem === "number" && mem > 0 ? mem : undefined,
     };
   } catch {
     return {

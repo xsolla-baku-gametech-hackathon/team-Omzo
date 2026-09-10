@@ -177,7 +177,7 @@ function createOverlay(): HTMLDivElement {
 
 let currentScreenshot: CaptureResult | null = null;
 
-function openOverlay(): void {
+export function openOverlay(): void {
   if (!overlayEl) {
     overlayEl = createOverlay();
 
@@ -215,7 +215,7 @@ function openOverlay(): void {
   body?.focus();
 }
 
-function closeOverlay(): void {
+export function closeOverlay(): void {
   if (!overlayEl) return;
   overlayEl.style.display = "none";
   isOpen = false;
@@ -228,6 +228,14 @@ function closeOverlay(): void {
   if (preview) preview.style.display = "none";
 
   setStatus("");
+}
+
+export function toggleOverlay(): void {
+  if (isOpen) {
+    closeOverlay();
+  } else {
+    openOverlay();
+  }
 }
 
 function setStatus(msg: string): void {
