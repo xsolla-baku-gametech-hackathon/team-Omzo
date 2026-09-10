@@ -28,6 +28,7 @@ import {
   issueAccessGrant,
 } from "@/server/services/accessService";
 import { signGrantToken } from "@/domain/access/token";
+import { requireSecret } from "@/server/config/secrets";
 
 // Mock the database client so the test runs completely offline in CI
 vi.mock("@/server/db", () => {
@@ -172,9 +173,10 @@ describe("Authorisation & Security Layer (SPEC.md §6)", () => {
   });
 
   describe("Access Grant Binding & Validation (§6.1)", () => {
-    const ACCESS_SECRET =
-      process.env.ACCESS_SECRET ??
-      "fallback-dev-access-secret-at-least-32-chars-long";
+    // Resolved through the same loader the service uses, so the test signs
+    // with whatever key production would. Duplicating the literal here is how
+    // the committed fallback survived as long as it did.
+    const ACCESS_SECRET = requireSecret("ACCESS_SECRET");
 
     it("rejects an access link opened in a browser with a different User-Agent", async () => {
       const grantId = "grant-xyz";

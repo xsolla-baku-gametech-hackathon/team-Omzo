@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { signGrantToken, verifyGrantToken } from "@/domain/access/token";
 import type { GrantTokenPayload } from "@/domain/access/token";
+import { requireSecret } from "@/server/config/secrets";
 import { db } from "@/server/db";
 import type { AccessGrant, Campaign, Prisma } from "@prisma/client";
 
@@ -19,9 +20,17 @@ import type { AccessGrant, Campaign, Prisma } from "@prisma/client";
  * - Globally unique 16-bit watermarkId from sequence
  */
 
-const ACCESS_SECRET =
-  process.env.ACCESS_SECRET ??
-  "fallback-dev-access-secret-at-least-32-chars-long";
+/**
+ * Read per call, not at module load: a throw at import time would break
+ * `next build`, which evaluates modules without the deploy's environment.
+ * A forgeable ACCESS_SECRET means minting build grants for any campaign and
+ * pinning the resulting watermark on an arbitrary tester, so this must never
+ * fall back to a committed value.
+ */
+function accessSecret(): string {
+  return requireSecret("ACCESS_SECRET");
+}
+
 const GRANT_TTL_MS = 15 * 60 * 1000; // 15 minutes
 const ROLLING_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const MAX_ISSUANCES_PER_WINDOW = 5;
@@ -250,7 +259,7 @@ export async function issueAccessGrant(
       watermarkId: grant.watermarkId,
       exp: Math.floor(grant.expiresAt.getTime() / 1000),
     },
-    ACCESS_SECRET,
+    accessSecret(),
   );
 
   return { grant, token };
@@ -262,7 +271,7 @@ export async function issueAccessGrant(
 export async function validateAccessGrant(
   input: ValidateAccessGrantInput,
 ): Promise<AccessValidationOutcome> {
-  const result = verifyGrantToken(input.token, ACCESS_SECRET);
+  const result = verifyGrantToken(input.token, accessSecret());
   if (!result.valid) {
     if (result.reason === "expired") {
       throw new InvalidAccessTokenError("This access token has expired.");

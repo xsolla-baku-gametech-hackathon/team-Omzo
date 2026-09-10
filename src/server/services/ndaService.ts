@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { requireSecret } from "@/server/config/secrets";
 import { db } from "@/server/db";
 import type { NdaSignature } from "@prisma/client";
 
@@ -13,7 +14,15 @@ import type { NdaSignature } from "@prisma/client";
  * - One signature per tester per campaign: @@unique([userId, campaignId])
  */
 
-const APP_SALT = process.env.APP_SALT ?? "dev-fallback-salt-do-not-use-in-prod";
+/**
+ * The salt is the only thing standing between a stored hash and the raw
+ * address: IPv4 is about four billion values, so a known salt makes the
+ * whole space enumerable in seconds and the "we never store a raw IP"
+ * promise meaningless. Read per call so a missing value fails closed.
+ */
+function ipSalt(): string {
+  return requireSecret("APP_SALT");
+}
 
 export interface SignNdaInput {
   readonly userId: string;
@@ -61,13 +70,17 @@ export class InvalidTypedNameError extends Error {
  * Validates that a string contains a legitimate legal first and last name.
  * Requires at least 2 words, each at least 2 chars, letters/hyphens/apostrophes only.
  */
-export function isValidLegalName(name: string): { valid: boolean; reason?: string } {
+export function isValidLegalName(name: string): {
+  valid: boolean;
+  reason?: string;
+} {
   const trimmed = name.trim();
   const parts = trimmed.split(/\s+/);
   if (parts.length < 2) {
     return {
       valid: false,
-      reason: "Həm ad, həm də soyad daxil edilməlidir (məsələn: Əli Əliyev və ya John Doe).",
+      reason:
+        "Həm ad, həm də soyad daxil edilməlidir (məsələn: Əli Əliyev və ya John Doe).",
     };
   }
   if (parts.some((p) => p.length < 2)) {
@@ -89,7 +102,7 @@ export function isValidLegalName(name: string): { valid: boolean; reason?: strin
 
 export function hashIp(ip: string): string {
   return createHash("sha256")
-    .update(ip.trim() + APP_SALT)
+    .update(ip.trim() + ipSalt())
     .digest("hex");
 }
 
