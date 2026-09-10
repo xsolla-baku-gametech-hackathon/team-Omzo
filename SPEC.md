@@ -388,12 +388,20 @@ Overlap of `gpuRenderer` family, OS and browser family with the issue's existing
 ```
 score = 0.45·A + 0.25·B + 0.20·C + 0.10·D
 
-score ≥ 0.82           → attach to that issue, recompute shared traits and severity
+score ≥ 0.40           → attach to that issue, recompute shared traits and severity
                          (the centroid is not stored; it is rebuilt in memory next ingest)
-0.62 ≤ score < 0.82    → attach as "possible duplicate", flagged for one-click
+0.25 ≤ score < 0.40    → attach as "possible duplicate", flagged for one-click
                           confirm/split in the UI
-score < 0.62           → create a new issue
+score < 0.25           → create a new issue
 ```
+
+**These thresholds were 0.82 / 0.62 and were recalibrated against the seed
+corpus in Phase 1.** Hand-written paraphrases of one bug reach a median cosine
+of 0.08–0.32; 0.82 demands 0.79, and produced 197 issues from 328 reports.
+Precision does not pay for the change: the count of issues mixing two
+different bugs is zero at every threshold from 0.82 down to 0.40, because the
+discriminating work is done by the scene veto and state proximity rather than
+by the lexical score. The first mixed issue appears at 0.35.
 
 If several issues clear the threshold, attach to the highest scorer only.
 
@@ -409,12 +417,39 @@ Mark `isNoise = true` when: body is under 12 characters after normalisation, or 
 
 Pure rules, no model:
 
-- `CRASH` category, or `occurrenceCount ≥ 15` → `CRITICAL`
-- `occurrenceCount ≥ 8`, or blocks progression keywords (`can't continue`, `softlock`, `stuck forever`) → `HIGH`
-- `occurrenceCount ≥ 3` → `MEDIUM`
-- otherwise → `LOW`
+Severity is **impact × spread**, not spread alone. A single crash that ends
+the session is `CRITICAL`; a cosmetic complaint reported two hundred times is
+not. Frequency measures how widespread an impact is, never whether there is
+one. So the rules combine a category and keyword judgement with a _share_ of
+the campaign's reports:
 
-Recompute on every attach. The board sorts by severity then occurrence count.
+```
+share = occurrenceCount / max(campaignReportCount, 50)
+
+CRITICAL : category = CRASH
+           OR (progression-blocking keywords AND share ≥ 0.06)
+           OR share ≥ 0.12
+HIGH     : share ≥ 0.075
+           OR progression-blocking keywords
+MEDIUM   : share ≥ 0.02
+LOW      : otherwise
+```
+
+The `max(_, 50)` floor stops a brand-new campaign inflating everything: without
+it the first report of a campaign is 100% of it and every new issue opens
+`CRITICAL`.
+
+Share rather than raw count is what survives a change of scale — the earlier
+absolute thresholds (15 / 8 / 3) were calibrated against a 40-report fixture
+and turned the whole board `CRITICAL` at 400. The share values are read
+against the **average** issue share, which is `1/issueCount`, about 7% for a
+campaign collapsing to fourteen issues: a 6% `CRITICAL` threshold sits _below_
+average and marks most of the board red by construction.
+
+All four constants are named exports in `domain/triage/config.ts`. Recompute on
+every attach and after every manual merge — severity is a share of the
+campaign, so every issue moves when the campaign grows, not only the one that
+gained a report. The board sorts by severity then occurrence count.
 
 ### 5.6 Optional LLM enrichment
 
