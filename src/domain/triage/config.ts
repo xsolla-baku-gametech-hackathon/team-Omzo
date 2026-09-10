@@ -14,11 +14,29 @@ export const WEIGHTS = {
   environment: 0.1,
 } as const;
 
-/** At or above this, a report joins an existing issue. */
-export const THRESHOLD_ATTACH = 0.82;
+/**
+ * At or above this, a report joins an existing issue.
+ *
+ * Calibrated against the seed corpus rather than chosen. The originally
+ * specified 0.82 assumed a lexical similarity that real writing does not
+ * reach: hand-written paraphrases of one bug score a median cosine of
+ * 0.08-0.32, while 0.82 demands 0.79. It produced 197 issues from 328
+ * reports -- one per report, near enough, which is the product not working.
+ *
+ * Lowering it costs nothing in precision here, which is the part worth
+ * checking: across every threshold from 0.82 down to 0.40, the number of
+ * issues mixing two different bugs stays at zero. The discriminating work is
+ * done by the scene veto and state proximity, not by the lexical score, so
+ * the threshold governs how much wording agreement is demanded on top of
+ * "same place, same machine" -- and demanding near-identical wording there
+ * only splits one bug into forty.
+ *
+ * The first mixed issue appears at 0.35. This sits above that.
+ */
+export const THRESHOLD_ATTACH = 0.4;
 
 /** At or above this but below attach, it is flagged as a possible duplicate. */
-export const THRESHOLD_POSSIBLE = 0.62;
+export const THRESHOLD_POSSIBLE = 0.25;
 
 /**
  * An exact, non-empty log signature match is very strong evidence, strong

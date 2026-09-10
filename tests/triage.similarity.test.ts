@@ -76,9 +76,16 @@ function background(): TriageState {
   );
 }
 
-/** Issues created after the background, i.e. the ones a test is about. */
-function newIssues(state: TriageState): readonly Issue[] {
-  return state.issues.slice(BACKGROUND.length);
+/**
+ * Issues that appeared after the background was laid down.
+ *
+ * Diffed by id rather than by count: the background does not always collapse
+ * to the same number of issues, and a test that assumed it did would break
+ * for a reason that has nothing to do with what it is testing.
+ */
+function newIssues(after: TriageState, before: TriageState): readonly Issue[] {
+  const known = new Set(before.issues.map((issue) => issue.id));
+  return after.issues.filter((issue) => !known.has(issue.id));
 }
 
 describe("weights", () => {
@@ -95,8 +102,9 @@ describe("weights", () => {
 
 describe("clustering", () => {
   it("clusters the same bug described in different words", () => {
+    const base = background();
     const first = ingest(
-      background(),
+      base,
       report({ body: "The lift jams and the game stops responding" }),
     );
     const second = ingest(
@@ -105,18 +113,18 @@ describe("clustering", () => {
     );
 
     expect(second.decision.kind).toBe("attach");
-    expect(newIssues(second.state)).toHaveLength(1);
-    expect(newIssues(second.state)[0].reports).toHaveLength(2);
+    expect(newIssues(second.state, base)).toHaveLength(1);
+    expect(newIssues(second.state, base)[0].reports).toHaveLength(2);
   });
 
-  it("holds a pair that shares no vocabulary at all, rather than merging", () => {
-    // Same bug, same place, same machine -- but "lift" and "elevator" are
-    // different words and nothing else overlaps. The engine declines to
-    // decide and hands it to a human. This is the intended behaviour, not a
-    // shortfall: a wrongly merged report hides a real bug, a wrongly split
-    // one costs a click.
+  it("clusters a pair that shares almost no vocabulary", () => {
+    // "lift" and "elevator" are different words and little else overlaps, so
+    // the lexical score is weak. Same scene, same bucket and same machine
+    // carry it -- which is the point of scoring four signals rather than
+    // reading the sentence and hoping.
+    const base = background();
     const first = ingest(
-      background(),
+      base,
       report({ body: "The lift jams and the game stops responding" }),
     );
     const second = ingest(
@@ -124,16 +132,15 @@ describe("clustering", () => {
       report({ body: "Game froze solid when I took the elevator up" }),
     );
 
-    expect(second.decision.kind).toBe("possible");
-    expect(newIssues(second.state)).toHaveLength(1);
-    expect(newIssues(second.state)[0].reports).toHaveLength(1);
-    expect(newIssues(second.state)[0].possibleDuplicates).toHaveLength(1);
+    expect(second.decision.kind).toBe("attach");
+    expect(newIssues(second.state, base)[0].reports).toHaveLength(2);
   });
 
   it("never clusters across scenes, however alike the wording", () => {
     const wording = "The lift jams and the game stops responding";
+    const base = background();
     const first = ingest(
-      background(),
+      base,
       report({ body: wording, gameState: at(128, 96) }),
     );
     const second = ingest(
@@ -147,7 +154,7 @@ describe("clustering", () => {
     // Byte-identical wording, identical machine, identical coordinates. Only
     // the scene differs, and that alone is enough.
     expect(second.decision.kind).toBe("new");
-    expect(newIssues(second.state)).toHaveLength(2);
+    expect(newIssues(second.state, base)).toHaveLength(2);
   });
 
   it("clusters on an identical stack even when the wording shares nothing", () => {
@@ -206,8 +213,13 @@ describe("clustering", () => {
   });
 
   it("lands a borderline pair in the band, and holds it there", () => {
+    // Same scene, well away from the lift, and only the word "jams" in
+    // common. Might be the same fault in the same mechanism, might be a
+    // different door entirely -- so it goes to a human rather than into the
+    // occurrence count.
+    const base = background();
     const first = ingest(
-      background(),
+      base,
       report({
         body: "The lift jams and the game stops responding",
         gameState: at(128, 96),
@@ -216,8 +228,8 @@ describe("clustering", () => {
     const second = ingest(
       first.state,
       report({
-        body: "Game froze solid when I took the elevator up",
-        gameState: at(128, 96),
+        body: "The door jams on the far side of the atrium",
+        gameState: at(190, 40),
       }),
     );
 
@@ -230,13 +242,14 @@ describe("clustering", () => {
 
     // A possible duplicate is held, not counted. The occurrence count on the
     // board must never include something a human has not confirmed.
-    expect(newIssues(second.state)).toHaveLength(1);
-    expect(newIssues(second.state)[0].reports).toHaveLength(1);
-    expect(newIssues(second.state)[0].possibleDuplicates).toHaveLength(1);
+    expect(newIssues(second.state, base)).toHaveLength(1);
+    expect(newIssues(second.state, base)[0].reports).toHaveLength(1);
+    expect(newIssues(second.state, base)[0].possibleDuplicates).toHaveLength(1);
   });
 
   it("attaches to the highest scorer only, never to several", () => {
-    let state = background();
+    const base = background();
+    let state = base;
     for (const body of [
       "The lift jams and the game stops responding",
       "lift jammed again, game stopped responding",
@@ -245,7 +258,7 @@ describe("clustering", () => {
       state = ingest(state, report({ body })).state;
     }
 
-    const issues = newIssues(state);
+    const issues = newIssues(state, base);
     expect(issues).toHaveLength(1);
     // Three reports in, three occurrences out. An occurrence count that
     // double-counts is worse than one that undercounts: the board sorts on it.
