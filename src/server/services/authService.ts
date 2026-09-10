@@ -43,6 +43,15 @@ export class InvalidCredentialsError extends Error {
   }
 }
 
+import { validatePasswordStrength } from "@/domain/access/passwordRules";
+
+export class WeakPasswordError extends Error {
+  constructor(readonly reasons: readonly string[]) {
+    super(reasons.join(" ") || "Password does not meet security requirements.");
+    this.name = "WeakPasswordError";
+  }
+}
+
 export class StudioNameRequiredError extends Error {
   constructor() {
     super("A studio name is required for studio accounts.");
@@ -66,6 +75,11 @@ export async function registerUser(
 
   if (input.role === "STUDIO" && !input.studioName?.trim()) {
     throw new StudioNameRequiredError();
+  }
+
+  const strength = validatePasswordStrength(input.password);
+  if (!strength.isValid) {
+    throw new WeakPasswordError(strength.errors);
   }
 
   const passwordHash = await hash(input.password, BCRYPT_COST);

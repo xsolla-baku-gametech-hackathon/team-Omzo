@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   EmailAlreadyExistsError,
   StudioNameRequiredError,
+  WeakPasswordError,
   registerUser,
 } from "@/server/services/authService";
 import { createSessionToken, setSessionCookie } from "@/server/session";
@@ -84,6 +85,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (error instanceof StudioNameRequiredError) {
       return NextResponse.json(
         { error: "studio_name_required", message: error.message },
+        { status: 422 },
+      );
+    }
+    if (error instanceof WeakPasswordError) {
+      return NextResponse.json(
+        { error: "weak_password", message: error.message, reasons: error.reasons },
         { status: 422 },
       );
     }
