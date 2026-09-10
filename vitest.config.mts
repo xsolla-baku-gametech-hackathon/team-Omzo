@@ -1,0 +1,33 @@
+import { fileURLToPath } from "node:url";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
+
+const alias = { "@": fileURLToPath(new URL("./src", import.meta.url)) };
+
+// Two projects, because the two kinds of test want different worlds.
+// domain/ is pure and runs in Node in milliseconds; only components need a DOM.
+export default defineConfig({
+  test: {
+    passWithNoTests: true,
+    projects: [
+      {
+        resolve: { alias },
+        test: {
+          name: "domain",
+          environment: "node",
+          include: ["tests/**/*.test.ts", "src/domain/**/*.test.ts"],
+        },
+      },
+      {
+        plugins: [react()],
+        resolve: { alias },
+        test: {
+          name: "ui",
+          environment: "jsdom",
+          include: ["src/**/*.test.tsx"],
+          setupFiles: ["./tests/setup.ui.ts"],
+        },
+      },
+    ],
+  },
+});
