@@ -14,8 +14,15 @@ export async function POST(
   const { id: issueId } = await props.params;
   const session = await getSession();
 
+  if (session?.studioId === undefined) {
+    return NextResponse.json(
+      { error: "unauthorized", message: "Sign in as the owning studio." },
+      { status: 401 },
+    );
+  }
+
   try {
-    const issue = await verifyIssue(issueId, session?.studioId);
+    const issue = await verifyIssue(issueId, session.studioId);
     return NextResponse.json({ success: true, issue });
   } catch (error) {
     if (error instanceof IssueNotFoundError) {

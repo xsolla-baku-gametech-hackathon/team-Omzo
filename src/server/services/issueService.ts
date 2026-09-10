@@ -198,6 +198,52 @@ export async function getCampaignIssues(
 }
 
 /**
+ * Everything the board needs, for a studio that is allowed to see it.
+ *
+ * The ownership check lives here rather than only in the route, because a
+ * second caller of the same data would otherwise have to remember to repeat
+ * it -- and §6.5 puts authorisation in the service layer for exactly that
+ * reason.
+ */
+export async function getBoardForStudio(
+  campaignId: string,
+  studioId: string | undefined,
+): Promise<{
+  issues: readonly Issue[];
+  reports: readonly Report[];
+  stats: { totalReports: number; totalIssues: number; noiseCount: number };
+}> {
+  if (studioId === undefined || studioId === "") {
+    throw new UnauthorizedIssueMutationError();
+  }
+
+  const campaign = await db.campaign.findUnique({
+    where: { id: campaignId },
+    select: { studioId: true },
+  });
+
+  if (campaign === null) {
+    throw new IssueNotFoundError(campaignId);
+  }
+  if (campaign.studioId !== studioId) {
+    throw new UnauthorizedIssueMutationError();
+  }
+
+  const [issues, reports, totalReports, noiseCount] = await Promise.all([
+    getCampaignIssues(campaignId),
+    getCampaignReportsStream(campaignId, 50),
+    db.report.count({ where: { campaignId } }),
+    db.report.count({ where: { campaignId, isNoise: true } }),
+  ]);
+
+  return {
+    issues,
+    reports,
+    stats: { totalReports, totalIssues: issues.length, noiseCount },
+  };
+}
+
+/**
  * Fetches the recent raw incoming reports stream for a campaign.
  */
 export async function getCampaignReportsStream(
@@ -243,11 +289,22 @@ export async function getIssueDetail(
 
 /**
  * Verifies an issue, marking status = VERIFIED and emitting realtime events.
+ *
+ * `studioId` is required, not optional. It was optional, and the route passed
+ * `session?.studioId` -- so a caller with no session at all passed `undefined`
+ * and the ownership check was skipped entirely, letting anyone verify any
+ * issue in any campaign. Verification is what releases a payout from the
+ * studio's reward pool (§6.4), so this is the one mutation that must never
+ * take "no caller" for an answer.
  */
 export async function verifyIssue(
   issueId: string,
-  studioId?: string,
+  studioId: string,
 ): Promise<Issue> {
+  if (studioId === "") {
+    throw new UnauthorizedIssueMutationError();
+  }
+
   const issue = await db.issue.findUnique({
     where: { id: issueId },
     include: { campaign: { select: { studioId: true } } },
@@ -257,7 +314,7 @@ export async function verifyIssue(
     throw new IssueNotFoundError(issueId);
   }
 
-  if (studioId && issue.campaign.studioId !== studioId) {
+  if (issue.campaign.studioId !== studioId) {
     throw new UnauthorizedIssueMutationError();
   }
 
