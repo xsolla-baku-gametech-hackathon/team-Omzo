@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
 
 /**
- * EmptyState — UI_SPEC.md §4
+ * EmptyState — UI_SPEC.md §4, restyled to UI_SPEC_V2_DARK.md §1.
  * Heading, one line, one action.
- * "An empty screen is an instruction, not an apology."
+ *
+ * "An empty screen is an instruction, not an apology." Left-aligned and
+ * unboxed: this is a Console surface, and V2 §5 has no centred text and
+ * no cards in the product. Grouping comes from space, not from a border.
  */
 interface EmptyStateProps {
   readonly title: string;
@@ -19,16 +22,14 @@ export function EmptyState({
   className = "",
 }: EmptyStateProps) {
   return (
-    <div
-      className={`border border-[var(--color-line-hairline)] bg-[var(--color-surface-sunken)] p-8 md:p-12 text-center rounded-[var(--radius-md)] ${className}`}
-    >
-      <h3 className="text-[16px] font-semibold text-[var(--color-ink-primary)] tracking-[-0.01em]">
+    <div className={`py-[var(--space-12)] ${className}`}>
+      <h3 className="text-[length:var(--type-heading-size)] leading-[var(--type-heading-lh)] tracking-[var(--type-heading-ls)] font-[550] text-[var(--ink-primary)]">
         {title}
       </h3>
-      <p className="text-[14px] text-[var(--color-ink-secondary)] mt-1.5 max-w-sm mx-auto leading-relaxed">
+      <p className="mt-[var(--space-2)] max-w-[var(--body-measure)] text-[length:var(--type-body-size)] leading-[var(--type-body-lh)] text-[var(--ink-secondary)]">
         {description}
       </p>
-      {action && <div className="mt-5">{action}</div>}
+      {action && <div className="mt-[var(--space-6)]">{action}</div>}
     </div>
   );
 }
