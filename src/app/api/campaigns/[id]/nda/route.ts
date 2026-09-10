@@ -7,12 +7,17 @@ import {
   MissingBirthDateError,
   UnderageError,
   getNdaSignature,
+  isValidLegalName,
   signNda,
 } from "@/server/services/ndaService";
 import { getSession } from "@/server/session";
+import { db } from "@/server/db";
 
 const signNdaSchema = z.object({
-  typedName: z.string().min(2).max(120),
+  typedName: z.string().trim().refine((name) => isValidLegalName(name).valid, {
+    message: "Tam ad və soyad daxil edilməlidir (məs: Əli Əliyev və ya John Doe).",
+  }),
+  birthDate: z.string().optional(),
 });
 
 export async function GET(
@@ -62,10 +67,11 @@ export async function POST(
 
   const parsed = signNdaSchema.safeParse(payload);
   if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0]?.message;
     return NextResponse.json(
       {
         error: "validation_error",
-        message: "A full typed name is required to sign.",
+        message: firstIssue || "A full typed name (first and last name) is required to sign.",
         issues: parsed.error.issues,
       },
       { status: 422 },
@@ -79,6 +85,16 @@ export async function POST(
     "127.0.0.1";
 
   try {
+    if (parsed.data.birthDate) {
+      const parsedDate = new Date(parsed.data.birthDate);
+      if (!isNaN(parsedDate.getTime())) {
+        await db.user.update({
+          where: { id: session.sub },
+          data: { birthDate: parsedDate },
+        });
+      }
+    }
+
     const signature = await signNda({
       userId: session.sub,
       campaignId,

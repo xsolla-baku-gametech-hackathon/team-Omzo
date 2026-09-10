@@ -13,9 +13,11 @@ import {
 } from "@/server/services/campaignService";
 import {
   UnderageError,
+  InvalidTypedNameError,
   calculateAge,
   hashIp,
   hashNdaBody,
+  isValidLegalName,
   signNda,
 } from "@/server/services/ndaService";
 import {
@@ -121,6 +123,40 @@ describe("Authorisation & Security Layer (SPEC.md §6)", () => {
           clientIp: "127.0.0.1",
         }),
       ).rejects.toThrow(UnderageError);
+    });
+
+    it("requires a full legal name with both first and last name", async () => {
+      expect(isValidLegalName("John").valid).toBe(false);
+      expect(isValidLegalName("ad").valid).toBe(false);
+      expect(isValidLegalName("A B").valid).toBe(false);
+      expect(isValidLegalName("John123 Doe").valid).toBe(false);
+      expect(isValidLegalName("John Doe!").valid).toBe(false);
+      expect(isValidLegalName("John Doe").valid).toBe(true);
+      expect(isValidLegalName("Əli Əliyev").valid).toBe(true);
+      expect(isValidLegalName("Mary-Jane Watson").valid).toBe(true);
+
+      const adultBirthDate = new Date("1995-01-01");
+      vi.mocked(db.campaign.findUnique).mockResolvedValue({
+        id: "campaign-1",
+        status: "OPEN",
+        revokedAt: null,
+        ndaBodyMd: "Terms",
+      } as unknown as Campaign);
+      vi.mocked(db.user.findUnique).mockResolvedValue({
+        id: "user-adult",
+        birthDate: adultBirthDate,
+      } as unknown as User);
+
+      // Single word name rejected
+      await expect(
+        signNda({
+          userId: "user-adult",
+          campaignId: "campaign-1",
+          typedName: "Ziyad",
+          userAgent: "Mozilla/5.0",
+          clientIp: "127.0.0.1",
+        }),
+      ).rejects.toThrow(InvalidTypedNameError);
     });
 
     it("hashes IP with salt and hashes exact NDA markdown (§4)", () => {

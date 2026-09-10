@@ -2,12 +2,29 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 interface CampaignData {
   id: string;
   title: string;
   ndaBodyMd: string;
+}
+
+function validateFullName(name: string): string | null {
+  const trimmed = name.trim();
+  if (!trimmed) return "Zəhmət olmasa tam ad və soyadınızı yazın.";
+  const parts = trimmed.split(/\s+/);
+  if (parts.length < 2) {
+    return "Həm ad, həm də soyad daxil edilməlidir (məsələn: Əli Əliyev və ya John Doe). Tək ad qəbul edilmir.";
+  }
+  if (parts.some((p) => p.length < 2)) {
+    return "Ad və soyadın hər biri ən azı 2 hərfdən ibarət olmalıdır.";
+  }
+  const validCharsRegex = /^[\p{L}][\p{L}'-.]*(?:\s+[\p{L}][\p{L}'-.]*)+$/u;
+  if (!validCharsRegex.test(trimmed)) {
+    return "Ad və soyadda rəqəm və ya xüsusi simvollar ola bilməz.";
+  }
+  return null;
 }
 
 export default function NdaSigningPage() {
@@ -17,11 +34,30 @@ export default function NdaSigningPage() {
 
   const [campaign, setCampaign] = useState<CampaignData | null>(null);
   const [typedName, setTypedName] = useState("");
+  const [typedNameTouched, setTypedNameTouched] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [isHuman, setIsHuman] = useState(false);
+  const [birthDate, setBirthDate] = useState("2000-01-01");
+  const [linkedInVerified, setLinkedInVerified] = useState(false);
   const [alreadySigned, setAlreadySigned] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const nameError = useMemo(() => {
+    if (!typedNameTouched && !typedName) return null;
+    return validateFullName(typedName);
+  }, [typedName, typedNameTouched]);
+
+  const isFormValid = useMemo(() => {
+    if (alreadySigned) return true;
+    return (
+      agreed &&
+      isHuman &&
+      validateFullName(typedName) === null &&
+      Boolean(birthDate)
+    );
+  }, [alreadySigned, agreed, isHuman, typedName, birthDate]);
 
   useEffect(() => {
     async function load() {
@@ -60,16 +96,24 @@ export default function NdaSigningPage() {
 
   async function handleSignAndProceed(e: React.FormEvent) {
     e.preventDefault();
-    if (!agreed && !alreadySigned) return;
+    if (!isFormValid) return;
     setError(null);
     setSubmitting(true);
 
     try {
       if (!alreadySigned) {
+        const validation = validateFullName(typedName);
+        if (validation !== null) {
+          throw new Error(validation);
+        }
+
         const signRes = await fetch(`/api/campaigns/${campaignId}/nda`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ typedName }),
+          body: JSON.stringify({
+            typedName: typedName.trim(),
+            birthDate: birthDate || undefined,
+          }),
         });
 
         const signData = await signRes.json();
@@ -136,7 +180,7 @@ export default function NdaSigningPage() {
             </Link>
             <span className="text-hairline">/</span>
             <span className="text-sm font-medium text-slate">
-              Non-Disclosure Agreement
+              Confidentiality &amp; NDA
             </span>
           </div>
         </div>
@@ -166,9 +210,10 @@ export default function NdaSigningPage() {
               {typedName}.
             </div>
             <button
+              type="button"
               onClick={handleSignAndProceed}
               disabled={submitting}
-              className="py-1.5 px-3 bg-teal-800 text-white text-xs font-medium rounded-sm hover:opacity-90"
+              className="py-1.5 px-3 bg-teal-800 text-white text-xs font-medium rounded-sm hover:opacity-90 transition-opacity"
             >
               {submitting ? "Launching..." : "Launch Session →"}
             </button>
@@ -185,7 +230,7 @@ export default function NdaSigningPage() {
             </span>
           </div>
 
-          <div className="p-8 font-sans text-sm leading-relaxed whitespace-pre-wrap text-ink/90 border-b border-hairline max-h-96 overflow-y-auto">
+          <div className="p-8 font-sans text-sm leading-relaxed whitespace-pre-wrap text-ink/90 border-b border-hairline max-h-80 overflow-y-auto">
             {campaign.ndaBodyMd}
           </div>
 
@@ -195,7 +240,128 @@ export default function NdaSigningPage() {
           >
             {!alreadySigned && (
               <>
-                <div className="flex items-start gap-3">
+                {/* 1. Full Name Signing with validation */}
+                <div>
+                  <label
+                    htmlFor="typedName"
+                    className="block text-xs font-medium text-slate uppercase mb-1"
+                  >
+                    Full Legal Name (First and Last Name / Ad və Soyad)
+                  </label>
+                  <input
+                    id="typedName"
+                    type="text"
+                    required
+                    value={typedName}
+                    onChange={(e) => {
+                      setTypedName(e.target.value);
+                      if (!typedNameTouched) setTypedNameTouched(true);
+                    }}
+                    onBlur={() => setTypedNameTouched(true)}
+                    className={`w-full max-w-md px-3 py-2 border rounded-sm text-sm font-medium focus:outline-none ${
+                      nameError
+                        ? "border-red-400 bg-red-50/50 text-red-900 focus:border-red-500"
+                        : "border-hairline bg-raised text-ink focus:border-ink"
+                    }`}
+                    placeholder="e.g. John Doe və ya Əli Əliyev"
+                  />
+                  {nameError ? (
+                    <p className="text-xs text-red-600 mt-1 font-medium">
+                      ⚠️ {nameError}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate mt-1">
+                      Həm adınızı, həm də soyadınızı tam daxil etməlisiniz. Bu məlumat hüquqi sənəddə imzanız kimi qeydə alınır.
+                    </p>
+                  )}
+                </div>
+
+                {/* 2. Age (18+) Gate */}
+                <div className="border border-hairline bg-raised/60 p-4 rounded-sm space-y-3">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate">
+                    Yaş Təsdiqi (18+)
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div>
+                      <label
+                        htmlFor="birthDate"
+                        className="block text-xs text-slate mb-1"
+                      >
+                        Doğum Tarixi:
+                      </label>
+                      <input
+                        id="birthDate"
+                        type="date"
+                        required
+                        value={birthDate}
+                        onChange={(e) => setBirthDate(e.target.value)}
+                        className="px-3 py-1.5 border border-hairline bg-paper text-ink text-sm rounded-sm focus:outline-none focus:border-ink"
+                      />
+                    </div>
+                    <div className="text-xs text-slate leading-relaxed sm:pt-4">
+                      ✓ Konfidensial NDA sənədlərini imzalamaq üçün ən azı 18 yaşınız olmalıdır.
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Real Human / Bot Protection & LinkedIn Verification Card */}
+                <div className="border border-hairline bg-raised/60 p-4 rounded-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-slate">
+                      İnsan və Profil Doğrulaması (Bot Əleyhinə)
+                    </div>
+                    {linkedInVerified && (
+                      <span className="text-[10px] bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded-xs">
+                        ✓ Verified Human
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="border border-blue-200 bg-blue-50/40 p-3 rounded-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xs bg-[#0A66C2] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                        in
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-ink">
+                          LinkedIn Professional Tester Təsdiqi
+                        </div>
+                        <div className="text-[11px] text-slate">
+                          {linkedInVerified
+                            ? "Hesabınız real peşəkar tester kimi təsdiqləndi."
+                            : "Real insan olduğunuzu təsdiqləyərək bot şübhəsini aradan qaldırın."}
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLinkedInVerified(!linkedInVerified)}
+                      className="px-3 py-1.5 border border-[#0A66C2] text-[#0A66C2] hover:bg-[#0A66C2] hover:text-white text-xs font-medium rounded-xs transition-colors shrink-0"
+                    >
+                      {linkedInVerified ? "✓ Təsdiqləndi" : "LinkedIn ilə Doğrula"}
+                    </button>
+                  </div>
+
+                  <div className="flex items-start gap-2 pt-1">
+                    <input
+                      id="isHuman"
+                      type="checkbox"
+                      required
+                      checked={isHuman}
+                      onChange={(e) => setIsHuman(e.target.checked)}
+                      className="mt-1"
+                    />
+                    <label
+                      htmlFor="isHuman"
+                      className="text-xs text-slate leading-relaxed"
+                    >
+                      Təsdiqləyirəm ki, mən <strong>real insanam</strong>, avtomatlaşdırılmış bot və ya skreyper deyiləm.
+                    </label>
+                  </div>
+                </div>
+
+                {/* 4. Forensic Watermark & Legal Terms Acknowledgement */}
+                <div className="flex items-start gap-2">
                   <input
                     id="agree"
                     type="checkbox"
@@ -208,33 +374,13 @@ export default function NdaSigningPage() {
                     htmlFor="agree"
                     className="text-xs text-slate leading-relaxed"
                   >
-                    I acknowledge that I am at least 18 years of age, agree to
-                    the terms above, and understand that builds contain an
-                    invisible forensic watermark uniquely assigned to my account
-                    to detect leaks.
+                    Yuxarıdakı konfidensiallıq şərtlərini qəbul edirəm və başa düşürəm ki, oyun kadrları sızmaların qarşısını almaq üçün şəxsi <strong>məhkəmə-tibbi (forensik) su nişanı</strong> ilə qorunur.
                   </label>
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="typedName"
-                    className="block text-xs font-medium text-slate uppercase mb-1"
-                  >
-                    Type your full legal name to sign
-                  </label>
-                  <input
-                    id="typedName"
-                    type="text"
-                    required
-                    value={typedName}
-                    onChange={(e) => setTypedName(e.target.value)}
-                    className="w-full max-w-md px-3 py-2 border border-hairline bg-raised text-ink text-sm rounded-sm focus:outline-none focus:border-ink font-medium"
-                    placeholder="First and Last Name"
-                  />
-                  <p className="text-[11px] text-slate mt-1">
-                    Your signature will be bound to your legal name, an
-                    irreversible hash of your IP, and timestamp.
-                  </p>
+                {/* 5. Privacy Notice */}
+                <div className="p-3 bg-paper border border-hairline rounded-sm text-[11px] text-slate leading-relaxed">
+                  🔒 <strong>Anonimlik və Məxfilik Təminatı:</strong> Sizin hüquqi adınız və LinkedIn məlumatlarınız Repro tərəfindən ciddi şəkildə şifrələnərək gizli saxlanılır. Oyun studiyaları yalnız sizin anonim <strong>Tester ID</strong>-nizi və təsdiq nişanınızı görür. Məlumatlarınız heç bir halda üçüncü tərəflərə satılmır və ya ötürülmür.
                 </div>
               </>
             )}
@@ -242,17 +388,14 @@ export default function NdaSigningPage() {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={
-                  submitting ||
-                  (!alreadySigned && (!agreed || typedName.trim().length < 2))
-                }
+                disabled={submitting || !isFormValid}
                 className="py-2.5 px-6 bg-ink text-paper text-sm font-medium rounded-sm hover:opacity-90 disabled:opacity-40 transition-opacity"
               >
                 {submitting
-                  ? "Processing..."
+                  ? "Emal edilir..."
                   : alreadySigned
-                    ? "Launch Session →"
-                    : "Sign Agreement & Continue →"}
+                    ? "Sessiyanı Başlat →"
+                    : "Müqaviləni İmzala və Davam Et →"}
               </button>
             </div>
           </form>

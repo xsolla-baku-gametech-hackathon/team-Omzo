@@ -193,7 +193,7 @@ function drawHUD(): void {
   const fps = heavyCompute ? "⚠ LOW FPS" : "60 FPS";
   ctx.fillStyle = "#6e7b77";
   ctx.font = "400 12px ui-monospace, Menlo, monospace";
-  ctx.fillText(`Room: ${ROOMS[currentRoom].name} | ${fps} | Press F1 to report`, 30, H - 20);
+  ctx.fillText(`Room: ${ROOMS[currentRoom].name} | ${fps} | Press ~ or F1 to report (or click button)`, 30, H - 20);
 
   const elapsed = Math.floor((Date.now() - startTime) / 1000);
   const min = Math.floor(elapsed / 60);

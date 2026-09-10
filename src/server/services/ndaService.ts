@@ -49,10 +49,42 @@ export class CampaignNotOpenForSigningError extends Error {
 }
 
 export class InvalidTypedNameError extends Error {
-  constructor() {
-    super("You must type your full legal name to sign the NDA.");
+  constructor(
+    message: string = "You must type your full legal name (first and last name) to sign the NDA.",
+  ) {
+    super(message);
     this.name = "InvalidTypedNameError";
   }
+}
+
+/**
+ * Validates that a string contains a legitimate legal first and last name.
+ * Requires at least 2 words, each at least 2 chars, letters/hyphens/apostrophes only.
+ */
+export function isValidLegalName(name: string): { valid: boolean; reason?: string } {
+  const trimmed = name.trim();
+  const parts = trimmed.split(/\s+/);
+  if (parts.length < 2) {
+    return {
+      valid: false,
+      reason: "Həm ad, həm də soyad daxil edilməlidir (məsələn: Əli Əliyev və ya John Doe).",
+    };
+  }
+  if (parts.some((p) => p.length < 2)) {
+    return {
+      valid: false,
+      reason: "Ad və soyadın hər biri ən azı 2 hərfdən ibarət olmalıdır.",
+    };
+  }
+  // Unicode letters, hyphens, apostrophes, spaces, periods. Reject numbers and symbols.
+  const validCharsRegex = /^[\p{L}][\p{L}'-.]*(?:\s+[\p{L}][\p{L}'-.]*)+$/u;
+  if (!validCharsRegex.test(trimmed)) {
+    return {
+      valid: false,
+      reason: "Ad və soyadda rəqəm və ya xüsusi simvollar ola bilməz.",
+    };
+  }
+  return { valid: true };
 }
 
 export function hashIp(ip: string): string {
@@ -82,8 +114,9 @@ export function calculateAge(
  */
 export async function signNda(input: SignNdaInput): Promise<NdaSignature> {
   const typedName = input.typedName.trim();
-  if (typedName.length < 2) {
-    throw new InvalidTypedNameError();
+  const nameValidation = isValidLegalName(typedName);
+  if (!nameValidation.valid) {
+    throw new InvalidTypedNameError(nameValidation.reason);
   }
 
   const [campaign, user] = await Promise.all([

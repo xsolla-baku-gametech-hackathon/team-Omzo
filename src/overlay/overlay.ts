@@ -290,7 +290,19 @@ async function submitReport(): Promise<void> {
 // ── Keyboard binding ─────────────────────────────────────────────────
 
 function handleKeydown(e: KeyboardEvent): void {
-  if (e.key === "F1") {
+  // Support F1, tilde/backquote (~ / `), and Shift+R so Mac users without Fn lock can easily open overlay
+  const isTrigger =
+    e.key === "F1" ||
+    e.key === "`" ||
+    e.key === "~" ||
+    (e.shiftKey && (e.key === "R" || e.key === "r"));
+
+  if (isTrigger) {
+    const activeTag = document.activeElement?.tagName.toLowerCase();
+    if (activeTag === "textarea" && (e.key === "`" || e.key === "~")) {
+      return;
+    }
+
     e.preventDefault();
     e.stopPropagation();
     if (isOpen) {
