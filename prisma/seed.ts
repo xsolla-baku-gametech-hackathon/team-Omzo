@@ -169,25 +169,55 @@ async function main(): Promise<void> {
     return token;
   };
 
+  /**
+   * Ingest is rate limited per tester, and the fixtures are deliberately
+   * lopsided — the busiest testers file hundreds of reports, because that
+   * skew is what makes the clustering demo look like real playtest traffic.
+   * A bulk loader therefore hits 429 by design.
+   *
+   * The seed waits and retries rather than the limit being raised to
+   * accommodate it. Loosening a security control so a script can finish
+   * faster is the wrong trade, and honouring Retry-After is what any correct
+   * client does anyway, so this exercises that path too.
+   */
+  const postReport = async (
+    report: (typeof reports)[number],
+  ): Promise<Response> => {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const response = await fetch(`${BASE_URL}/api/ingest`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${grantTokenFor(report.reporterId)}`,
+        },
+        body: JSON.stringify({
+          campaignId: CAMPAIGN_ID,
+          body: report.body,
+          gameState: report.gameState,
+          systemInfo: report.systemInfo,
+          consoleTail: report.consoleTail,
+          // The fixture id doubles as the idempotency key, which is what
+          // makes re-running the seed a no-op rather than a second
+          // campaign's worth of duplicate occurrences.
+          clientReportId: report.id,
+        }),
+      });
+
+      if (response.status !== 429) return response;
+
+      const retryAfterSec = Number(response.headers.get("retry-after") ?? "1");
+      const waitMs = Math.max(250, retryAfterSec * 1000);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+
+    throw new Error(
+      `ingest kept rate limiting ${report.id} after 20 attempts. Is another ` +
+        `seed run in progress?`,
+    );
+  };
+
   for (const [index, report] of reports.entries()) {
-    const response = await fetch(`${BASE_URL}/api/ingest`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${grantTokenFor(report.reporterId)}`,
-      },
-      body: JSON.stringify({
-        campaignId: CAMPAIGN_ID,
-        body: report.body,
-        gameState: report.gameState,
-        systemInfo: report.systemInfo,
-        consoleTail: report.consoleTail,
-        // The fixture id doubles as the idempotency key, which is what makes
-        // re-running the seed a no-op rather than a second campaign's worth
-        // of duplicate occurrences.
-        clientReportId: report.id,
-      }),
-    });
+    const response = await postReport(report);
 
     if (!response.ok && response.status !== 200) {
       const detail = await response.text();
