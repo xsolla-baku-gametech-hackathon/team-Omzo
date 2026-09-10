@@ -269,8 +269,11 @@ export function ingest(
   });
 
   if (decision.kind === "new") {
+    // Derived from the first report, so reloading a campaign from storage
+    // reconstructs exactly the same issues. Underscore, not colon: this id
+    // ends up in a URL path, and a colon survives there as %3A.
     issues.push(
-      rebuildIssue(`issue:${report.id}`, [report], [], campaignReportCount),
+      rebuildIssue(`issue_${report.id}`, [report], [], campaignReportCount),
     );
   }
 
