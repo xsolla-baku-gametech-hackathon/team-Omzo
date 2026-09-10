@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { Button } from "@/components/Button";
+import { SignalBar } from "@/components/SignalBar";
 
 export interface MergeCandidate {
   readonly id: string;
@@ -60,17 +61,20 @@ export function MergeModal({
       role="dialog"
       aria-modal="true"
       aria-label="Merge issues review"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--surface-page)]/70 p-[var(--space-4)]"
     >
-      <div className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-[var(--color-surface-raised)] border border-[var(--color-line-hairline)] rounded-[var(--radius-md)] shadow-[var(--elevation-modal)] overflow-hidden">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-[var(--color-line-hairline)] flex items-center justify-between shrink-0">
+      {/* edge-lit is the one Stage primitive that crosses into the Console:
+          a modal is a raised surface and the rim reads as an edge, not as
+          decoration (V2 §5.4). */}
+      <div className="edge-lit flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[var(--radius-xl)] bg-[var(--surface-overlay)] shadow-[var(--elevation-modal)]">
+        <div className="flex shrink-0 items-start justify-between gap-[var(--space-4)] px-[var(--space-6)] py-[var(--space-4)]">
           <div>
-            <h2 className="text-[18px] font-semibold text-[var(--color-ink-primary)] tracking-[-0.01em]">
-              Review Possible Duplicate
+            <h2 className="text-[length:var(--type-heading-size)] leading-[var(--type-heading-lh)] tracking-[var(--type-heading-ls)] font-[550] text-[var(--ink-primary)]">
+              Are these the same bug?
             </h2>
-            <p className="text-[13px] text-[var(--color-ink-secondary)] mt-0.5">
-              Compare candidate issues side by side before merging.
+            <p className="mt-[var(--space-1)] text-[length:var(--type-meta-size)] text-[var(--ink-secondary)]">
+              The engine scored these between &ldquo;same bug&rdquo; and
+              &ldquo;different bug&rdquo; and declined to guess.
             </p>
           </div>
           <button
@@ -78,150 +82,64 @@ export function MergeModal({
             onClick={onClose}
             disabled={isProcessing}
             aria-label="Close dialog"
-            className="p-1.5 text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)] rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+            className="shrink-0 rounded-[var(--radius-sm)] p-[var(--space-2)] text-[var(--ink-secondary)] transition-colors hover:text-[var(--ink-primary)]"
           >
-            ✕
+            &#10005;
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          {/* Signal breakdown */}
-          <div className="p-4 bg-[var(--color-surface-sunken)] rounded-[var(--radius-sm)] border border-[var(--color-line-hairline)]">
-            <div className="flex items-baseline justify-between mb-2">
-              <span className="text-[12px] uppercase font-semibold tracking-wider text-[var(--color-ink-secondary)]">
-                Computed Similarity Score
-              </span>
-              <span className="text-[16px] font-semibold text-[var(--color-ink-primary)] font-mono">
-                {(signals.overall * 100).toFixed(0)}%
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              <div>
-                <div className="text-[11px] text-[var(--color-ink-secondary)] mb-1">
-                  Lexical (TF-IDF)
+        <div className="flex-1 overflow-y-auto px-[var(--space-6)] pb-[var(--space-6)]">
+          {/* The two issues, side by side. Stacked on a phone. */}
+          <div className="grid grid-cols-1 gap-[var(--space-6)] md:grid-cols-2">
+            {[sourceIssue, targetIssue].map((issue, index) => (
+              <div key={issue.id}>
+                <div className="flex items-baseline justify-between gap-[var(--space-3)] border-b border-[var(--line-subtle)] pb-[var(--space-2)]">
+                  <span className="text-[length:var(--type-meta-size)] text-[var(--ink-tertiary)]">
+                    {index === 0 ? "This issue" : "The candidate"}
+                  </span>
+                  <span className="tabular-nums text-[length:var(--type-meta-size)] text-[var(--ink-secondary)]">
+                    {issue.occurrenceCount}{" "}
+                    {issue.occurrenceCount === 1 ? "report" : "reports"}
+                  </span>
                 </div>
-                <div className="h-1.5 w-full bg-[var(--color-line-hairline)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[var(--color-accent)]"
-                    style={{ width: `${Math.min(100, signals.lexical * 100)}%` }}
-                  />
-                </div>
-                <div className="text-[11px] text-[var(--color-ink-secondary)] font-mono mt-0.5">
-                  {(signals.lexical * 100).toFixed(0)}%
-                </div>
-              </div>
-
-              <div>
-                <div className="text-[11px] text-[var(--color-ink-secondary)] mb-1">
-                  Game Proximity
-                </div>
-                <div className="h-1.5 w-full bg-[var(--color-line-hairline)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[var(--color-accent)]"
-                    style={{ width: `${Math.min(100, signals.proximity * 100)}%` }}
-                  />
-                </div>
-                <div className="text-[11px] text-[var(--color-ink-secondary)] font-mono mt-0.5">
-                  {(signals.proximity * 100).toFixed(0)}%
+                <h3 className="mt-[var(--space-3)] text-[length:var(--type-heading-size)] leading-[var(--type-heading-lh)] tracking-[var(--type-heading-ls)] font-[550] text-[var(--ink-primary)]">
+                  {issue.title}
+                </h3>
+                <div className="mt-[var(--space-3)] space-y-[var(--space-2)]">
+                  {issue.sampleReports.map((report, i) => (
+                    <p
+                      key={i}
+                      className="line-clamp-2 rounded-[var(--radius-sm)] bg-[var(--surface-sunken)] px-[var(--space-3)] py-[var(--space-2)] text-[length:var(--type-meta-size)] leading-[var(--type-meta-lh)] text-[var(--ink-secondary)]"
+                    >
+                      {report}
+                    </p>
+                  ))}
                 </div>
               </div>
-
-              <div>
-                <div className="text-[11px] text-[var(--color-ink-secondary)] mb-1">
-                  Log Signature
-                </div>
-                <div className="h-1.5 w-full bg-[var(--color-line-hairline)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[var(--color-accent)]"
-                    style={{ width: `${Math.min(100, signals.signature * 100)}%` }}
-                  />
-                </div>
-                <div className="text-[11px] text-[var(--color-ink-secondary)] font-mono mt-0.5">
-                  {(signals.signature * 100).toFixed(0)}%
-                </div>
-              </div>
-
-              <div>
-                <div className="text-[11px] text-[var(--color-ink-secondary)] mb-1">
-                  Environment
-                </div>
-                <div className="h-1.5 w-full bg-[var(--color-line-hairline)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[var(--color-accent)]"
-                    style={{ width: `${Math.min(100, signals.environment * 100)}%` }}
-                  />
-                </div>
-                <div className="text-[11px] text-[var(--color-ink-secondary)] font-mono mt-0.5">
-                  {(signals.environment * 100).toFixed(0)}%
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* Side-by-side comparison */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Issue A */}
-            <div className="p-4 border border-[var(--color-line-hairline)] rounded-[var(--radius-sm)] bg-[var(--color-surface-raised)] space-y-3">
-              <div className="flex items-baseline justify-between border-b border-[var(--color-line-hairline)] pb-2">
-                <span className="text-[12px] uppercase font-semibold text-[var(--color-ink-secondary)]">
-                  Primary Issue
-                </span>
-                <span className="text-[14px] font-semibold text-[var(--color-ink-primary)] font-mono">
-                  {sourceIssue.occurrenceCount} reports
-                </span>
-              </div>
-              <h3 className="text-[16px] font-semibold text-[var(--color-ink-primary)] leading-snug">
-                {sourceIssue.title}
-              </h3>
-              <div className="space-y-2 pt-1">
-                <span className="text-[11px] uppercase tracking-wider text-[var(--color-ink-secondary)] block">
-                  Sample Reports
-                </span>
-                {sourceIssue.sampleReports.map((r, i) => (
-                  <p
-                    key={i}
-                    className="text-[13px] text-[var(--color-ink-secondary)] bg-[var(--color-surface-sunken)] p-2.5 rounded-[var(--radius-sm)] line-clamp-2 leading-relaxed"
-                  >
-                    “{r}”
-                  </p>
-                ))}
-              </div>
+          {/* The four component signals, under both panels (§5.4). */}
+          <div className="mt-[var(--space-8)] border-t border-[var(--line-subtle)] pt-[var(--space-6)]">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[length:var(--type-meta-size)] text-[var(--ink-secondary)]">
+                Similarity
+              </span>
+              <span className="tabular-nums text-[length:var(--type-heading-size)] font-semibold text-[var(--ink-primary)]">
+                {Math.round(signals.overall * 100)}%
+              </span>
             </div>
 
-            {/* Issue B */}
-            <div className="p-4 border border-[var(--color-line-hairline)] rounded-[var(--radius-sm)] bg-[var(--color-surface-raised)] space-y-3">
-              <div className="flex items-baseline justify-between border-b border-[var(--color-line-hairline)] pb-2">
-                <span className="text-[12px] uppercase font-semibold text-[var(--color-ink-secondary)]">
-                  Candidate Duplicate
-                </span>
-                <span className="text-[14px] font-semibold text-[var(--color-ink-primary)] font-mono">
-                  {targetIssue.occurrenceCount} reports
-                </span>
-              </div>
-              <h3 className="text-[16px] font-semibold text-[var(--color-ink-primary)] leading-snug">
-                {targetIssue.title}
-              </h3>
-              <div className="space-y-2 pt-1">
-                <span className="text-[11px] uppercase tracking-wider text-[var(--color-ink-secondary)] block">
-                  Sample Reports
-                </span>
-                {targetIssue.sampleReports.map((r, i) => (
-                  <p
-                    key={i}
-                    className="text-[13px] text-[var(--color-ink-secondary)] bg-[var(--color-surface-sunken)] p-2.5 rounded-[var(--radius-sm)] line-clamp-2 leading-relaxed"
-                  >
-                    “{r}”
-                  </p>
-                ))}
-              </div>
+            <div className="mt-[var(--space-4)] grid grid-cols-1 gap-[var(--space-4)] sm:grid-cols-2 lg:grid-cols-4">
+              <SignalBar label="Wording" value={signals.lexical} />
+              <SignalBar label="Position in scene" value={signals.proximity} />
+              <SignalBar label="Console signature" value={signals.signature} />
+              <SignalBar label="Hardware" value={signals.environment} />
             </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="px-6 py-4 border-t border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] flex items-center justify-end gap-3 shrink-0">
+        <div className="flex shrink-0 items-center justify-end gap-[var(--space-3)] border-t border-[var(--line-subtle)] px-[var(--space-6)] py-[var(--space-4)]">
           <Button
             variant="secondary"
             onClick={onKeepSeparate}
@@ -229,12 +147,8 @@ export function MergeModal({
           >
             Keep separate
           </Button>
-          <Button
-            variant="primary"
-            onClick={onMerge}
-            disabled={isProcessing}
-          >
-            {isProcessing ? "Merging..." : "Merge into one issue"}
+          <Button variant="primary" onClick={onMerge} disabled={isProcessing}>
+            {isProcessing ? "Merging…" : "Merge into one issue"}
           </Button>
         </div>
       </div>
