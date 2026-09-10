@@ -4,6 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { IssueRow } from "@/components/IssueRow";
 import { RawStream } from "@/components/RawStream";
+import { toBoardIssue } from "@/components/boardIssue";
+import type { IssueRowSource } from "@/components/boardIssue";
+import { Button } from "@/components/Button";
 import { EmptyState } from "@/components/EmptyState";
 import type { StreamReport } from "@/components/RawStream";
 import type { IssueCategory, Severity } from "@/domain/triage/types";
@@ -15,6 +18,12 @@ export interface BoardIssue {
   readonly severity: Severity;
   readonly status: string;
   readonly occurrenceCount: number;
+  /** Dominant OS family across the issue's reports (V2 §5.2 second line). */
+  readonly platform?: string | null;
+  /** The scene the issue is pinned to. */
+  readonly scene?: string | null;
+  /** Epoch ms of first occurrence, for the age. */
+  readonly firstSeenAt?: number | null;
 }
 
 export interface BoardStats {
@@ -24,7 +33,7 @@ export interface BoardStats {
 }
 
 interface BoardPayload {
-  readonly issues: readonly BoardIssue[];
+  readonly issues: readonly IssueRowSource[];
   readonly reports: readonly {
     readonly id: string;
     readonly body: string;
@@ -38,6 +47,12 @@ interface BoardPayload {
 const POLL_INTERVAL_MS = 3000;
 type Connection = "live" | "polling";
 type SortOption = "severity" | "count" | "newest";
+
+const SORT_OPTIONS: ReadonlyArray<readonly [SortOption, string]> = [
+  ["severity", "By severity"],
+  ["count", "By occurrence"],
+  ["newest", "By newest"],
+];
 
 const SEVERITY_ORDER: Record<Severity, number> = {
   CRITICAL: 4,
@@ -58,10 +73,10 @@ export function IssueBoard({
   readonly initialStats: BoardStats;
 }) {
   const [issues, setIssues] = useState<readonly BoardIssue[]>(initialIssues);
-  const [reports, setReports] = useState<readonly StreamReport[]>(initialReports);
+  const [reports, setReports] =
+    useState<readonly StreamReport[]>(initialReports);
   const [stats, setStats] = useState<BoardStats>(initialStats);
   const [connection, setConnection] = useState<Connection>("live");
-  const [verifying, setVerifying] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Sorting & Mobile tabs
@@ -81,7 +96,7 @@ export function IssueBoard({
     });
     if (!response.ok) return;
     const payload = (await response.json()) as BoardPayload;
-    setIssues(payload.issues);
+    setIssues(payload.issues.map(toBoardIssue));
     setStats(payload.stats);
     setReports(
       payload.reports.map((report) => ({
@@ -179,18 +194,9 @@ export function IssueBoard({
     };
   }, [campaignId, refresh, scheduleRefresh]);
 
-  const verify = async (issueId: string) => {
-    setVerifying(issueId);
-    try {
-      const response = await fetch(`/api/issues/${issueId}/verify`, {
-        method: "POST",
-      });
-      if (response.ok) await refresh();
-    } finally {
-      setVerifying(null);
-    }
-  };
-
+  // Verification lives on the issue detail screen (V2 §5.3). The board row
+  // has one job: get you to the issue. UI_SPEC.md §5 asks for a keyboard
+  // path board -> issue -> verify, which is exactly that route.
   const copyCampaignLink = () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const link = `${origin}/play/${campaignId}/nda`;
@@ -223,15 +229,15 @@ export function IssueBoard({
 
   return (
     <div className="space-y-6">
-      {/* Mobile Tab Bar (<1024px) */}
-      <div className="flex lg:hidden border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-page)]">
+      {/* Columns become tabs below lg (UI_SPEC.md §6.2). */}
+      <div className="flex border-b border-[var(--line-subtle)] lg:hidden">
         <button
           type="button"
           onClick={() => setMobileTab("issues")}
-          className={`flex-1 py-2.5 text-[14px] font-medium border-b-2 text-center transition-colors ${
+          className={`flex-1 border-b-2 py-[var(--space-3)] text-center text-[length:var(--type-ui-size)] transition-colors ${
             mobileTab === "issues"
-              ? "border-[var(--color-accent)] text-[var(--color-ink-primary)] font-semibold"
-              : "border-transparent text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
+              ? "border-[var(--accent)] font-medium text-[var(--ink-primary)]"
+              : "border-transparent text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
           }`}
         >
           Issues ({stats.totalIssues})
@@ -242,71 +248,61 @@ export function IssueBoard({
             setMobileTab("stream");
             setUnseenLiveCount(0);
           }}
-          className={`flex-1 py-2.5 text-[14px] font-medium border-b-2 text-center transition-colors flex items-center justify-center gap-1.5 ${
+          className={`flex flex-1 items-center justify-center gap-[var(--space-2)] border-b-2 py-[var(--space-3)] text-center text-[length:var(--type-ui-size)] transition-colors ${
             mobileTab === "stream"
-              ? "border-[var(--color-accent)] text-[var(--color-ink-primary)] font-semibold"
-              : "border-transparent text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
+              ? "border-[var(--accent)] font-medium text-[var(--ink-primary)]"
+              : "border-transparent text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
           }`}
         >
-          <span>Live Stream</span>
+          <span>Live</span>
           {unseenLiveCount > 0 && mobileTab !== "stream" && (
-            <span className="w-2 h-2 rounded-full bg-[var(--color-accent)]" />
+            <span className="tabular-nums text-[length:var(--type-meta-size)] text-[var(--accent-text)]">
+              {unseenLiveCount}
+            </span>
           )}
         </button>
       </div>
 
       {/* Asymmetric Desktop Layout: 62% Left, 38% Right, 32px Gutter, No Divider (§3.2) */}
-      <div className="grid gap-8 lg:grid-cols-[62%_38%] items-start">
+      {/* 62/38 with a 32px gutter and no divider — the difference in density
+          does the separating. fr, not %, because 62% + 38% + a gutter is
+          wider than the container and overflows the page by exactly the
+          gutter. minmax(0,…) so the long issue titles can truncate. */}
+      <div className="grid items-start gap-[var(--console-gutter)] lg:grid-cols-[minmax(0,62fr)_minmax(0,38fr)]">
         {/* Left Column: Triage Issues */}
         <section
           aria-labelledby="board-heading"
           className={mobileTab === "issues" ? "block" : "hidden lg:block"}
         >
-          {/* Header & Inline Sorting Chips */}
-          <div className="mb-4 flex flex-col sm:flex-row sm:items-baseline justify-between gap-3">
-            <div>
-              <h2 id="board-heading" className="text-[16px] md:text-[18px] font-semibold text-[var(--color-ink-primary)]">
-                {stats.totalIssues} issues
-                <span className="text-[var(--color-ink-secondary)] font-normal"> from {counted} reports</span>
-              </h2>
-            </div>
+          {/* Header and the three inline sort chips. No filter drawer. */}
+          <div className="mb-[var(--space-4)] flex flex-col justify-between gap-[var(--space-3)] sm:flex-row sm:items-baseline">
+            <h2
+              id="board-heading"
+              className="text-[length:var(--type-heading-size)] leading-[var(--type-heading-lh)] tracking-[var(--type-heading-ls)] font-[550] text-[var(--ink-primary)]"
+            >
+              {stats.totalIssues} issues
+              <span className="font-normal text-[var(--ink-secondary)]">
+                {" "}
+                from {counted} reports
+              </span>
+            </h2>
 
-            {/* Sorting Chips */}
-            <div className="flex items-center gap-1.5 text-[12px]">
-              <span className="text-[var(--color-ink-secondary)] mr-1 hidden sm:inline">Sort:</span>
-              <button
-                type="button"
-                onClick={() => setSortOption("severity")}
-                className={`px-2.5 py-1 rounded-[var(--radius-sm)] transition-colors ${
-                  sortOption === "severity"
-                    ? "bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] font-medium"
-                    : "bg-[var(--color-surface-sunken)] text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
-                }`}
-              >
-                Severity
-              </button>
-              <button
-                type="button"
-                onClick={() => setSortOption("count")}
-                className={`px-2.5 py-1 rounded-[var(--radius-sm)] transition-colors ${
-                  sortOption === "count"
-                    ? "bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] font-medium"
-                    : "bg-[var(--color-surface-sunken)] text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
-                }`}
-              >
-                Occurrence
-              </button>
-              <button
-                type="button"
-                onClick={() => setSortOption("newest")}
-                className={`px-2.5 py-1 rounded-[var(--radius-sm)] transition-colors ${
-                  sortOption === "newest"
-                    ? "bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] font-medium"
-                    : "bg-[var(--color-surface-sunken)] text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)]"
-                }`}
-              >
-                Newest
-              </button>
+            <div className="flex items-center gap-[var(--space-1)]">
+              {SORT_OPTIONS.map(([option, label]) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setSortOption(option)}
+                  aria-pressed={sortOption === option}
+                  className={`rounded-[var(--radius-sm)] px-[var(--space-3)] py-[var(--space-1)] text-[length:var(--type-meta-size)] transition-colors duration-[var(--dur-fast)] ${
+                    sortOption === option
+                      ? "bg-[var(--accent-wash)] text-[var(--ink-primary)]"
+                      : "text-[var(--ink-secondary)] hover:bg-[var(--surface-hover-subtle)] hover:text-[var(--ink-primary)]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -316,19 +312,15 @@ export function IssueBoard({
               title="No reports yet"
               description="Share the campaign access link with testers, or play the session yourself to file the first issue."
               action={
-                <button
-                  type="button"
-                  onClick={copyCampaignLink}
-                  className="px-4 py-2 bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] text-[13px] font-medium rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity"
-                >
-                  {copiedLink ? "✓ Link Copied!" : "Copy Campaign Access Link"}
-                </button>
+                <Button variant="primary" onClick={copyCampaignLink}>
+                  {copiedLink ? "Link copied" : "Copy campaign link"}
+                </Button>
               }
             />
           ) : (
-            <ol className="border-t border-[var(--color-line-hairline)] bg-[var(--color-surface-page)] divide-y divide-[var(--color-line-hairline)]">
+            <ol className="border-t border-[var(--line-subtle)]">
               {sortedIssues.map((issue) => (
-                <li key={issue.id} className="relative group">
+                <li key={issue.id}>
                   <IssueRow
                     id={issue.id}
                     campaignId={campaignId}
@@ -337,21 +329,10 @@ export function IssueBoard({
                     severity={issue.severity}
                     occurrenceCount={issue.occurrenceCount}
                     status={issue.status}
+                    platform={issue.platform}
+                    scene={issue.scene}
+                    firstSeenAt={issue.firstSeenAt}
                   />
-                  {issue.status !== "VERIFIED" && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        void verify(issue.id);
-                      }}
-                      disabled={verifying === issue.id}
-                      className="absolute right-4 bottom-2.5 text-[12px] text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)] underline underline-offset-2 disabled:opacity-50 transition-colors"
-                    >
-                      {verifying === issue.id ? "Verifying…" : "Verify"}
-                    </button>
-                  )}
                 </li>
               ))}
             </ol>
@@ -363,26 +344,22 @@ export function IssueBoard({
           aria-labelledby="stream-heading"
           className={mobileTab === "stream" ? "block" : "hidden lg:block"}
         >
-          <div className="mb-4 flex items-baseline justify-between gap-4">
-            <h2 id="stream-heading" className="text-[14px] font-medium text-[var(--color-ink-secondary)]">
+          <div className="mb-[var(--space-4)] flex items-baseline justify-between gap-[var(--space-4)]">
+            <h2
+              id="stream-heading"
+              className="text-[length:var(--type-ui-size)] text-[var(--ink-secondary)]"
+            >
               As it arrived
             </h2>
-            <div className="flex items-center gap-3 text-[12px] text-[var(--color-ink-secondary)]">
-              <span className="tabular-nums font-mono">{stats.totalReports} total</span>
-              <span className="flex items-center gap-1">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    connection === "live" ? "bg-[var(--color-accent)]" : "bg-[var(--color-warn)] animate-pulse"
-                  }`}
-                />
-                {connection === "live" ? "Live" : "Polling"}
-              </span>
+            {/* Plain text, no pulsing dot. Motion answers a user action;
+                a connection indicator is not one (UI_SPEC.md §0.4). */}
+            <div className="flex items-center gap-[var(--space-3)] text-[length:var(--type-meta-size)] text-[var(--ink-tertiary)]">
+              <span className="tabular-nums">{stats.totalReports} reports</span>
+              <span>{connection === "live" ? "Live" : "Reconnecting"}</span>
             </div>
           </div>
 
-          <div className="border border-[var(--color-line-hairline)] rounded-[var(--radius-sm)] overflow-hidden bg-[var(--color-surface-raised)]">
-            <RawStream reports={reports} now={now} />
-          </div>
+          <RawStream reports={reports} now={now} />
         </section>
       </div>
     </div>
