@@ -1,68 +1,180 @@
 /*
- * The only source of colour and type in this repo. Components import nothing
- * else and never write an ad-hoc hex value. See SPEC.md §8.
- *
- * Two colours are reserved and appear nowhere except their one meaning:
- *   --color-critical  CRITICAL severity, and nothing else
- *   --color-verified  verified / clustered state, and nothing else
- * That restraint is what makes the issue board readable at a glance. If a
- * third use for either colour appears, the design is wrong, not the token.
+ * REPRO Design Tokens — UI_SPEC.md §2
+ * Single source of truth for color, spacing, typography, radius, and elevation.
  */
 
-@theme {
-  /* ---- surface ---- */
-  --color-paper: #f1f3f2; /* cool paper, the page ground */
-  --color-raised: #f7f8f8; /* the quieter right column */
-  --color-ink: #141a18; /* primary text */
-  --color-slate: #6e7b77; /* secondary text, never below 15px on paper */
-  --color-hairline: #d5dad8; /* rules and borders, 1px only */
+:root {
+  /* Surface — Light */
+  --surface-page: #F2F4F3;
+  --surface-raised: #FAFBFA;
+  --surface-sunken: #E8EBEA;
 
-  /* ---- reserved ---- */
-  --color-critical: #d2452b; /* vermilion. CRITICAL only. */
-  --color-verified: #0f5e58; /* deep teal. verified/clustered only. */
+  /* Ink — Light */
+  --ink-primary: #141A18;
+  --ink-secondary: #5B6763;
+  --ink-tertiary: #8D9995;
 
-  /* ---- severity rules (3px left rule on an issue row) ---- */
-  --color-sev-critical: var(--color-critical);
-  --color-sev-high: #8a4a3c;
-  --color-sev-medium: #6e7b77;
-  --color-sev-low: #d5dad8;
+  /* Lines & Borders — Light */
+  --line-hairline: #DCE1DF;
+  --line-strong: #C2C9C6;
 
-  /* ---- type: one family, three deliberate roles ---- */
-  --font-sans:
-    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-mono:
-    var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  /* Semantics & Accents — Light */
+  --accent: #0F5E58;
+  --accent-soft: #DCEAE8;
+  --alert: #C13B22;
+  --alert-soft: #F8E4DF;
+  --warn: #8A5A12;
+  --neutral-mark: #A8B2AE;
 
-  /* role 1 — figures: occurrence counts and the collapse numbers */
-  --text-figure: 2.75rem;
-  --text-figure--line-height: 1;
-  --text-figure--letter-spacing: -0.03em;
-  --text-figure--font-weight: 600;
+  /* Typography Scale */
+  --type-display-size: 2.75rem;
+  --type-display-lh: 1.05;
+  --type-display-ls: -0.03em;
+  --type-display-weight: 600;
 
-  /* role 2 — interface labels. No all-caps, ever. */
-  --text-label: 0.8125rem;
-  --text-label--line-height: 1.35;
-  --text-label--letter-spacing: 0;
+  --type-title-size: 1.625rem;
+  --type-title-lh: 1.2;
+  --type-title-ls: -0.02em;
+  --type-title-weight: 600;
 
-  --text-label-lg: 0.875rem;
-  --text-label-lg--line-height: 1.4;
+  --type-heading-size: 1.125rem;
+  --type-heading-lh: 1.35;
+  --type-heading-ls: -0.01em;
+  --type-heading-weight: 550;
 
-  /* role 3 — body copy. Generous leading, max 68ch per line. */
-  --text-body: 0.9375rem;
-  --text-body--line-height: 1.65;
+  --type-body-size: 0.9375rem;
+  --type-body-lh: 1.6;
+  --type-body-ls: 0;
+  --type-body-weight: 400;
 
-  /* ---- measure ---- */
+  --type-ui-size: 0.875rem;
+  --type-ui-lh: 1.45;
+  --type-ui-ls: 0;
+  --type-ui-weight: 450;
+
+  --type-meta-size: 0.8125rem;
+  --type-meta-lh: 1.4;
+  --type-meta-ls: 0.005em;
+  --type-meta-weight: 450;
+
+  /* Spacing Scale (4px steps) */
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-10: 2.5rem;  /* 40px */
+  --space-12: 3rem;    /* 48px */
+  --space-16: 4rem;    /* 64px */
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-full: 9999px;
+
+  /* Elevation */
+  --elevation-sheet: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  --elevation-modal: 0 16px 48px rgba(0, 0, 0, 0.2);
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur-base: 220ms;
+  --dur-slow: 420ms;
+
+  /* Backwards compatibility aliases during migration */
+  --color-paper: var(--surface-page);
+  --color-raised: var(--surface-raised);
+  --color-ink: var(--ink-primary);
+  --color-slate: var(--ink-secondary);
+  --color-hairline: var(--line-hairline);
+  --color-verified: var(--accent);
+  --color-critical: var(--alert);
+  --color-sev-critical: var(--alert);
+  --color-sev-high: var(--warn);
+  --color-sev-medium: var(--neutral-mark);
+  --color-sev-low: var(--line-strong);
+  --text-figure: var(--type-display-size);
+  --text-label: var(--type-meta-size);
+  --text-label-lg: var(--type-ui-size);
+  --text-body: var(--type-body-size);
   --container-measure: 68ch;
+  --ease-collapse: var(--ease-standard);
+  --duration-collapse: 1600ms;
+}
 
-  /* ---- motion: exactly one orchestrated moment, the triage collapse ---- */
-  --ease-collapse: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --duration-collapse: 1400ms;
-  --duration-instant: 120ms;
+[data-theme="dark"] {
+  /* Surface — Dark (derived from green-teal root) */
+  --surface-page: #0E1413;
+  --surface-raised: #161D1B;
+  --surface-sunken: #0A100F;
+
+  /* Ink — Dark */
+  --ink-primary: #E4EAE7;
+  --ink-secondary: #94A19D;
+  --ink-tertiary: #68746F;
+
+  /* Lines & Borders — Dark */
+  --line-hairline: #232C2A;
+  --line-strong: #33403C;
+
+  /* Semantics & Accents — Dark */
+  --accent: #3FA79C;
+  --accent-soft: #12312E;
+  --alert: #E4654A;
+  --alert-soft: #3A1B14;
+  --warn: #D48E28;
+  --neutral-mark: #5E6A66;
+
+  /* Elevation adjustments in dark */
+  --elevation-sheet: 0 -4px 28px rgba(0, 0, 0, 0.45);
+  --elevation-modal: 0 16px 56px rgba(0, 0, 0, 0.6);
+}
+
+@theme {
+  --color-surface-page: var(--surface-page);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+
+  --color-ink-primary: var(--ink-primary);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-tertiary: var(--ink-tertiary);
+
+  --color-line-hairline: var(--line-hairline);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-alert: var(--alert);
+  --color-alert-soft: var(--alert-soft);
+  --color-warn: var(--warn);
+  --color-neutral-mark: var(--neutral-mark);
+
+  /* Backwards compatibility colors */
+  --color-paper: var(--surface-page);
+  --color-raised: var(--surface-raised);
+  --color-ink: var(--ink-primary);
+  --color-slate: var(--ink-secondary);
+  --color-hairline: var(--line-hairline);
+  --color-verified: var(--accent);
+  --color-critical: var(--alert);
+  --color-sev-critical: var(--alert);
+  --color-sev-high: var(--warn);
+  --color-sev-medium: var(--neutral-mark);
+  --color-sev-low: var(--line-strong);
+
+  /* Typography roles */
+  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
     --duration-collapse: 0ms;
-    --duration-instant: 0ms;
   }
 }
