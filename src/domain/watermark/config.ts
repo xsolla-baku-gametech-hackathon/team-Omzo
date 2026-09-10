@@ -11,12 +11,16 @@ export const GRID = 8;
 /**
  * Each block is subdivided into SUB x SUB cells whose deltas alternate sign.
  *
- * Four was measured, not chosen. At six or eight the cells are small enough
- * that a 3x downscale blurs neighbouring cells into each other and the signal
- * cancels itself; at two there are too few cells for the image content to
- * average out. Four survives 3x with room to spare.
+ * Eight was measured, not chosen. Four and eight both recover every id from
+ * every test frame at 1x, 2x and 3x; ten and above start losing bits as a 3x
+ * reduction blurs neighbouring cells into each other and the pattern cancels
+ * itself. Eight is therefore the finest grid that is still free, and finer is
+ * better: on a near-black scene a +/-2 step is around 7% Weber contrast and
+ * a coarse checkerboard of it is faintly perceptible, while the same step at
+ * twice the spatial frequency sits much lower on the eye's contrast
+ * sensitivity curve. See the README for what this does not fix.
  */
-export const SUB = 4;
+export const SUB = 8;
 
 /** 16 bits of watermarkId. The ceiling of 65,535 grants is stated in the README. */
 export const ID_BITS = 16;

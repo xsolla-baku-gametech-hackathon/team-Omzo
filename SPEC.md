@@ -506,7 +506,9 @@ The decoder must tolerate **integer downscaling by 2× and 3×** so that an OS s
 
 Be honest about the limits in the README: this survives a PNG screenshot and mild scaling. It does not survive heavy re-encoding, filters, or a phone photo of a monitor. Production would use a frequency-domain scheme. **Do not claim more than it does** — a judge who works in this field will test the claim, not the demo.
 
-Wire it into the session page: an overlay canvas composited over the game frame, redrawing the pattern once per second with the tester's `watermarkId`.
+**Nor is it strictly invisible, and the product must not say it is.** A ±2 step disappears into a mid-tone — 1.6% Weber contrast — but against a near-black scene, which is most game frames, it is nearer 7% and a careful eye can find it. The sub-cell grid is 8×8 rather than 4×4 partly for this reason: both recover every id from every test frame at 1×, 2× and 3×, so the finer grid is free, and doubling the spatial frequency pushes the pattern further down the eye's contrast sensitivity curve. What remains is the honest cost of a mark that also survives being screenshotted.
+
+Wire it into the session page by marking the frame's own pixels once per second with the tester's `watermarkId`, using the same encoder the decoder is tested against. **Not a translucent overlay canvas** — that was tried and it fails, because alpha blending is not symmetric. Over a dark scene, white at 0.8% alpha lifts a pixel by about two units while black at the same alpha drops it by a fifth of one, so the balanced ±2 becomes a brightening-only texture: more visible than the real pattern, and no longer the thing the decoder was measured on. Marking the pixels directly also collapses the two paths into one, so what the tester sees and what an exported file carries are the same frame rather than two approximations of it.
 
 ### 6.3 NDA
 

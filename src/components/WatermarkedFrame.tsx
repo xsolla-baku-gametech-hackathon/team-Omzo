@@ -2,35 +2,28 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-import { GRID, LUMINANCE_DELTA, SUB } from "@/domain/watermark/config";
 import { embedWatermark } from "@/domain/watermark/encode";
-import {
-  bitIndexForBlock,
-  payloadBits,
-  subCellSign,
-} from "@/domain/watermark/frame";
 
 /**
  * The build frame, marked with the tester's identity (SPEC.md §6.2).
  *
- * Two canvases, and the difference between them matters.
+ * The mark is applied to the frame's own pixels by the same encoder the
+ * decoder is tested against, so what the tester sees and what an exported
+ * file carries are the same frame -- not two approximations of one.
  *
- * The overlay is what the tester looks at: the same pattern, the same
- * geometry, the same payload, drawn as very faint translucent cells over the
- * frame once a second. Being an alpha blend it lands near +/-2 rather than
- * exactly on it, which is fine for something nobody can see.
- *
- * The export is what forensics reads, and it does not go through the overlay
- * at all. It takes the game canvas alone and runs the same encoder the
- * decoder was tested against, so the file on disk carries exact deltas rather
- * than whatever the browser's compositor rounded them to.
+ * The obvious alternative, a translucent overlay canvas composited on top,
+ * was tried and does not work. Alpha blending is not symmetric: over a dark
+ * scene, white at 0.8% alpha lifts a pixel by about two units while black at
+ * the same alpha drops it by a fifth of one. The pattern stops being a
+ * balanced +/-2 and becomes a brightening-only texture, which is both visible
+ * on a near-black frame and no longer the thing the decoder was measured on.
  */
 
 const FRAME_WIDTH = 1280;
 const FRAME_HEIGHT = 720;
 
-/** ~2/255. The alpha that moves a mid-tone by one luminance delta. */
-const OVERLAY_ALPHA = LUMINANCE_DELTA / 255;
+/** Re-marked once a second, so any frame grabbed at any moment carries it. */
+const REMARK_INTERVAL_MS = 1000;
 
 interface WatermarkedFrameProps {
   readonly watermarkId: number;
@@ -41,95 +34,64 @@ export function WatermarkedFrame({
   watermarkId,
   campaignTitle,
 }: WatermarkedFrameProps) {
-  const gameRef = useRef<HTMLCanvasElement>(null);
-  const overlayRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  /** The frame before marking. Re-marking the marked frame would compound. */
+  const cleanRef = useRef<ImageData | null>(null);
 
-  // TODO(phase-7): the demo game draws here. Until then the frame is a still
-  // scene, which is all the watermark and the export button need.
   useEffect(() => {
-    const context = gameRef.current?.getContext("2d");
-    if (!context) return;
-
-    context.fillStyle = "#101615";
-    context.fillRect(0, 0, FRAME_WIDTH, FRAME_HEIGHT);
-    context.fillStyle = "#1d2926";
-    context.fillRect(0, FRAME_HEIGHT * 0.68, FRAME_WIDTH, FRAME_HEIGHT);
-    context.fillStyle = "#2f3f3a";
-    for (let i = 0; i < 6; i += 1) {
-      context.fillRect(120 + i * 190, 250 + (i % 3) * 60, 130, 220);
-    }
-    context.fillStyle = "#c9d3d0";
-    context.font = "500 34px ui-sans-serif, system-ui, sans-serif";
-    context.fillText(campaignTitle, 64, 92);
-    context.fillStyle = "#6e7b77";
-    context.font = "400 20px ui-monospace, Menlo, monospace";
-    context.fillText("build frame — press F1 to report", 64, 128);
-  }, [campaignTitle]);
-
-  // The visible layer. Redrawn once a second so that a frame grabbed at any
-  // moment carries a mark, and so a still screenshot cannot be explained away
-  // as having been taken before the overlay loaded.
-  useEffect(() => {
-    const canvas = overlayRef.current;
-    const context = canvas?.getContext("2d");
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d", { willReadFrequently: true });
     if (!canvas || !context) return;
 
-    const bits = payloadBits(watermarkId);
-
-    const paint = () => {
-      context.clearRect(0, 0, FRAME_WIDTH, FRAME_HEIGHT);
-      for (let gy = 0; gy < GRID; gy += 1) {
-        for (let gx = 0; gx < GRID; gx += 1) {
-          const bit = bits[bitIndexForBlock(gy * GRID + gx)] === 1 ? 1 : -1;
-          const x0 = (gx * FRAME_WIDTH) / GRID;
-          const y0 = (gy * FRAME_HEIGHT) / GRID;
-          const cellW = FRAME_WIDTH / GRID / SUB;
-          const cellH = FRAME_HEIGHT / GRID / SUB;
-
-          for (let sy = 0; sy < SUB; sy += 1) {
-            for (let sx = 0; sx < SUB; sx += 1) {
-              const up = bit * subCellSign(sx, sy) > 0;
-              context.fillStyle = up
-                ? `rgba(255,255,255,${OVERLAY_ALPHA})`
-                : `rgba(0,0,0,${OVERLAY_ALPHA})`;
-              context.fillRect(x0 + sx * cellW, y0 + sy * cellH, cellW, cellH);
-            }
-          }
-        }
+    // TODO(phase-7): the demo game draws here. Until then the frame is a
+    // still scene, which is all the watermark and the export need.
+    const drawScene = () => {
+      context.fillStyle = "#101615";
+      context.fillRect(0, 0, FRAME_WIDTH, FRAME_HEIGHT);
+      context.fillStyle = "#1d2926";
+      context.fillRect(0, FRAME_HEIGHT * 0.68, FRAME_WIDTH, FRAME_HEIGHT);
+      context.fillStyle = "#2f3f3a";
+      for (let i = 0; i < 6; i += 1) {
+        context.fillRect(120 + i * 190, 250 + (i % 3) * 60, 130, 220);
       }
+      context.fillStyle = "#c9d3d0";
+      context.font = "500 34px ui-sans-serif, system-ui, sans-serif";
+      context.fillText(campaignTitle, 64, 92);
+      context.fillStyle = "#6e7b77";
+      context.font = "400 20px ui-monospace, Menlo, monospace";
+      context.fillText("build frame — press F1 to report", 64, 128);
     };
 
-    paint();
-    const timer = window.setInterval(paint, 1000);
+    const mark = () => {
+      let clean = cleanRef.current;
+      if (clean === null) {
+        drawScene();
+        clean = context.getImageData(0, 0, FRAME_WIDTH, FRAME_HEIGHT);
+        cleanRef.current = clean;
+      }
+      const marked = embedWatermark(
+        { width: clean.width, height: clean.height, data: clean.data },
+        watermarkId,
+      );
+      const out = context.createImageData(FRAME_WIDTH, FRAME_HEIGHT);
+      out.data.set(marked.data);
+      context.putImageData(out, 0, 0);
+    };
+
+    mark();
+    const timer = window.setInterval(mark, REMARK_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [watermarkId]);
+  }, [campaignTitle, watermarkId]);
 
   const exportFrame = useCallback(() => {
-    const game = gameRef.current;
-    const context = game?.getContext("2d");
-    if (!game || !context) return;
-
-    const source = context.getImageData(0, 0, FRAME_WIDTH, FRAME_HEIGHT);
-    const marked = embedWatermark(
-      { width: source.width, height: source.height, data: source.data },
-      watermarkId,
-    );
-
-    const out = document.createElement("canvas");
-    out.width = FRAME_WIDTH;
-    out.height = FRAME_HEIGHT;
-    const outContext = out.getContext("2d");
-    if (!outContext) return;
-    // Writing back into the ImageData we already hold, rather than
-    // constructing a new one, keeps the buffer the browser gave us.
-    source.data.set(marked.data);
-    outContext.putImageData(source, 0, 0);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
     // PNG, never JPEG, and never downscaled. A +/-2 delta does not survive a
     // lossy re-encode, which is exactly why the report screenshots in §7 --
-    // which are downscaled and JPEG'd on the client -- carry no watermark and
-    // are never presented as if they did.
-    out.toBlob((blob) => {
+    // downscaled and JPEG'd on the client -- carry no watermark and are never
+    // presented as if they did.
+    canvas.toBlob((blob) => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -142,21 +104,12 @@ export function WatermarkedFrame({
 
   return (
     <div>
-      <div className="relative aspect-video bg-ink">
-        <canvas
-          ref={gameRef}
-          width={FRAME_WIDTH}
-          height={FRAME_HEIGHT}
-          className="absolute inset-0 w-full h-full"
-        />
-        <canvas
-          ref={overlayRef}
-          width={FRAME_WIDTH}
-          height={FRAME_HEIGHT}
-          aria-hidden
-          className="absolute inset-0 w-full h-full pointer-events-none"
-        />
-      </div>
+      <canvas
+        ref={canvasRef}
+        width={FRAME_WIDTH}
+        height={FRAME_HEIGHT}
+        className="block w-full aspect-video bg-ink"
+      />
 
       <div className="p-4 bg-paper border-t border-hairline flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <p className="text-label text-slate max-w-measure">
