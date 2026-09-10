@@ -7,3 +7,4 @@ pnpm-lock.yaml
 next-env.d.ts
 prisma/migrations
 public
+scratch

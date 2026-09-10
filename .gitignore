@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# throwaway probes: scoring experiments, one-off measurements
+/scratch
+
 # debug
 npm-debug.log*
 yarn-debug.log*
