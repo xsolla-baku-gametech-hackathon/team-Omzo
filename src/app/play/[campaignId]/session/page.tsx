@@ -78,7 +78,7 @@ export default function SessionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--color-surface-page)] flex items-center justify-center p-6 text-[14px] text-[var(--color-ink-secondary)]">
+      <div className="min-h-screen bg-[var(--surface-page)] flex items-center justify-center p-6 text-[14px] text-[var(--ink-secondary)]">
         Validating signed build access token...
       </div>
     );
@@ -89,22 +89,22 @@ export default function SessionPage() {
     const isUaMismatch = errorStatus === 403;
 
     return (
-      <main className="min-h-screen bg-[var(--color-surface-page)] flex items-center justify-center p-6">
-        <div className="max-w-md w-full border border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] p-8 rounded-[var(--radius-md)] text-center shadow-xs">
-          <div className="w-10 h-10 mx-auto mb-4 rounded-full bg-[var(--color-alert-soft)] text-[var(--color-alert)] flex items-center justify-center font-bold text-lg">
+      <main className="min-h-screen bg-[var(--surface-page)] flex items-center justify-center p-6">
+        <div className="max-w-md w-full border border-[var(--line-subtle)] bg-[var(--surface-raised)] p-8 rounded-[var(--radius-md)] text-center shadow-xs">
+          <div className="w-10 h-10 mx-auto mb-4 rounded-full bg-[var(--sev-critical-wash)] text-[var(--sev-critical)] flex items-center justify-center font-bold text-lg">
             !
           </div>
 
-          <h1 className="text-[20px] font-semibold tracking-tight text-[var(--color-ink-primary)] mb-2">
+          <h1 className="text-[20px] font-semibold tracking-tight text-[var(--ink-primary)] mb-2">
             Access Denied
           </h1>
 
-          <div className="p-4 bg-[var(--color-alert-soft)] border border-[var(--color-alert)]/20 text-[var(--color-ink-primary)] text-[13px] rounded-[var(--radius-sm)] mb-6 leading-relaxed text-left">
+          <div className="p-4 bg-[var(--sev-critical-wash)] border border-[var(--sev-critical)]/20 text-[var(--ink-primary)] text-[13px] rounded-[var(--radius-sm)] mb-6 leading-relaxed text-left">
             {errorMessage}
           </div>
 
           {isUaMismatch && (
-            <p className="text-[12px] text-[var(--color-ink-secondary)] mb-6 leading-relaxed">
+            <p className="text-[12px] text-[var(--ink-secondary)] mb-6 leading-relaxed">
               Every build access token is cryptographically bound to the
               specific browser and device that requested it.
             </p>
@@ -112,7 +112,7 @@ export default function SessionPage() {
 
           <Link
             href={`/play/${campaignId}/nda`}
-            className="inline-block py-2.5 px-5 bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] text-[13px] font-medium rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity"
+            className="inline-block py-2.5 px-5 bg-[var(--accent)] text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)] text-[13px] font-medium rounded-[var(--radius-sm)] transition-opacity"
           >
             Request Your Own Access Link
           </Link>
@@ -124,37 +124,37 @@ export default function SessionPage() {
   return (
     <div
       onClick={() => setHeaderVisible((v) => !v)}
-      className="min-h-screen bg-[var(--color-surface-page)] flex flex-col text-[var(--color-ink-primary)] font-sans"
+      className="min-h-screen bg-[var(--surface-page)] flex flex-col text-[var(--ink-primary)] font-sans"
     >
       {/* Session Top Bar with Mobile Auto-Hide (§3.5) */}
       <header
-        className={`border-b border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] px-6 py-3 flex items-center justify-between transition-transform duration-200 z-30 ${
+        className={`border-b border-[var(--line-subtle)] bg-[var(--surface-raised)] px-6 py-3 flex items-center justify-between transition-transform duration-200 z-30 ${
           headerVisible ? "translate-y-0" : "-translate-y-full md:translate-y-0"
         }`}
       >
         <div className="flex items-center gap-4">
           <Link
             href="/"
-            className="font-semibold text-sm tracking-tight text-[var(--color-ink-primary)]"
+            className="font-semibold text-sm tracking-tight text-[var(--ink-primary)]"
           >
             Repro
           </Link>
-          <span className="text-[var(--color-line-hairline)]">/</span>
-          <span className="text-[13px] font-medium text-[var(--color-ink-primary)] truncate max-w-[200px]">
+          <span className="text-[var(--line-subtle)]">/</span>
+          <span className="text-[13px] font-medium text-[var(--ink-primary)] truncate max-w-[200px]">
             {data.campaignTitle}
           </span>
-          <span className="text-[11px] px-2 py-0.5 border border-[var(--color-line-hairline)] rounded-[var(--radius-sm)] font-mono text-[var(--color-ink-secondary)]">
+          <span className="text-[11px] px-2 py-0.5 border border-[var(--line-subtle)] rounded-[var(--radius-sm)] font-mono text-[var(--ink-secondary)]">
             ID: #{data.watermarkId}
           </span>
         </div>
 
         <div className="flex items-center gap-4 text-[13px]">
-          <span className="text-[var(--color-ink-secondary)] hidden sm:inline">
+          <span className="text-[var(--ink-secondary)] hidden sm:inline">
             Watermark active
           </span>
           <Link
             href={`/play/${campaignId}/nda`}
-            className="text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)] transition-colors"
+            className="text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors"
           >
             Leave Session
           </Link>
@@ -166,7 +166,7 @@ export default function SessionPage() {
         onClick={(e) => e.stopPropagation()}
         className="flex-1 flex flex-col items-center justify-center p-2 sm:p-6"
       >
-        <div className="max-w-4xl w-full border border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] rounded-[var(--radius-md)] overflow-hidden shadow-xs">
+        <div className="max-w-4xl w-full border border-[var(--line-subtle)] bg-[var(--surface-raised)] rounded-[var(--radius-md)] overflow-hidden shadow-xs">
           <WatermarkedFrame
             watermarkId={data.watermarkId}
             campaignTitle={data.campaignTitle}
@@ -174,10 +174,10 @@ export default function SessionPage() {
             reporterId={data.userId}
           />
 
-          <div className="p-4 bg-[var(--color-surface-page)] border-t border-[var(--color-line-hairline)] flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-[var(--color-ink-secondary)]">
+          <div className="p-4 bg-[var(--surface-page)] border-t border-[var(--line-subtle)] flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-[var(--ink-secondary)]">
             <div>
               Build mode:{" "}
-              <span className="font-mono text-[var(--color-ink-primary)]">
+              <span className="font-mono text-[var(--ink-primary)]">
                 {data.buildKind}
               </span>
             </div>

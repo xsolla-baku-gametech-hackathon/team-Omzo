@@ -52,7 +52,7 @@ export function Lightbox({
           type="button"
           onClick={onClose}
           aria-label="Close lightbox"
-          className="absolute -top-10 right-0 text-white/80 hover:text-white text-lg font-mono p-2 focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+          className="absolute -top-10 right-0 text-white/80 hover:text-white text-lg font-mono p-2 focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
         >
           ✕
         </button>
@@ -73,7 +73,7 @@ export function Lightbox({
                   onIndexChange((currentIndex - 1 + images.length) % images.length)
                 }
                 aria-label="Previous screenshot"
-                className="absolute left-3 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+                className="absolute left-3 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
               >
                 ‹
               </button>
@@ -83,7 +83,7 @@ export function Lightbox({
                   onIndexChange((currentIndex + 1) % images.length)
                 }
                 aria-label="Next screenshot"
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
               >
                 ›
               </button>

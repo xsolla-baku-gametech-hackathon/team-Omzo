@@ -42,27 +42,27 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--color-surface-page)] flex items-center justify-center p-6 text-[var(--color-ink-primary)] font-sans relative">
+    <main className="min-h-screen bg-[var(--surface-page)] flex items-center justify-center p-6 text-[var(--ink-primary)] font-sans relative">
       <div className="absolute top-6 right-6"></div>
 
-      <div className="w-full max-w-sm border border-[var(--color-line-hairline)] bg-[var(--color-surface-raised)] p-8 rounded-[var(--radius-md)] shadow-xs">
+      <div className="w-full max-w-sm border border-[var(--line-subtle)] bg-[var(--surface-raised)] p-8 rounded-[var(--radius-md)] shadow-xs">
         <div className="mb-6">
           <Link
             href="/"
-            className="text-xs font-semibold text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)] transition-colors"
+            className="text-xs font-semibold text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors"
           >
             ← Repro
           </Link>
-          <h1 className="text-xl font-semibold mt-2 tracking-tight text-[var(--color-ink-primary)]">
+          <h1 className="text-xl font-semibold mt-2 tracking-tight text-[var(--ink-primary)]">
             Sign in
           </h1>
-          <p className="text-xs text-[var(--color-ink-secondary)] mt-1">
+          <p className="text-xs text-[var(--ink-secondary)] mt-1">
             Access playtesting campaigns or your studio board.
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-[var(--color-alert-soft)] border border-[var(--color-alert)]/20 text-[var(--color-ink-primary)] text-xs rounded-[var(--radius-sm)]">
+          <div className="mb-4 p-3 bg-[var(--sev-critical-wash)] border border-[var(--sev-critical)]/20 text-[var(--ink-primary)] text-xs rounded-[var(--radius-sm)]">
             {error}
           </div>
         )}
@@ -71,7 +71,7 @@ export default function LoginPage() {
           <div>
             <label
               htmlFor="email"
-              className="block text-xs font-medium text-[var(--color-ink-secondary)] uppercase mb-1"
+              className="block text-xs font-medium text-[var(--ink-secondary)] uppercase mb-1"
             >
               Email address
             </label>
@@ -81,7 +81,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--color-line-hairline)] bg-[var(--color-surface-page)] text-[var(--color-ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--color-accent)]"
+              className="w-full px-3 py-2 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)]"
               placeholder="alex@studio.dev"
             />
           </div>
@@ -89,7 +89,7 @@ export default function LoginPage() {
           <div>
             <label
               htmlFor="password"
-              className="block text-xs font-medium text-[var(--color-ink-secondary)] uppercase mb-1"
+              className="block text-xs font-medium text-[var(--ink-secondary)] uppercase mb-1"
             >
               Password
             </label>
@@ -99,7 +99,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--color-line-hairline)] bg-[var(--color-surface-page)] text-[var(--color-ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--color-accent)]"
+              className="w-full px-3 py-2 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)]"
               placeholder="••••••••"
             />
           </div>
@@ -107,17 +107,17 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 bg-[var(--color-ink-primary)] text-[var(--color-surface-page)] text-sm font-medium rounded-[var(--radius-sm)] hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="w-full py-2.5 px-4 bg-[var(--accent)] text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)] text-sm font-medium rounded-[var(--radius-sm)] disabled:opacity-50 transition-opacity"
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-[var(--color-line-hairline)] text-center text-xs text-[var(--color-ink-secondary)]">
+        <div className="mt-6 pt-4 border-t border-[var(--line-subtle)] text-center text-xs text-[var(--ink-secondary)]">
           Don&apos;t have an account?{" "}
           <Link
             href="/register"
-            className="text-[var(--color-ink-primary)] underline font-medium"
+            className="text-[var(--ink-primary)] underline font-medium"
           >
             Register
           </Link>

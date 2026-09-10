@@ -44,23 +44,23 @@ export function Sheet({
     >
       <div
         ref={sheetRef}
-        className={`w-full md:max-w-xl max-h-[90vh] flex flex-col bg-[var(--color-surface-raised)] border-t md:border border-[var(--color-line-hairline)] rounded-t-[var(--radius-md)] md:rounded-[var(--radius-md)] shadow-[var(--elevation-sheet)] pb-[env(safe-area-inset-bottom,16px)] overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-200 ${className}`}
+        className={`w-full md:max-w-xl max-h-[90vh] flex flex-col bg-[var(--surface-raised)] border-t md:border border-[var(--line-subtle)] rounded-t-[var(--radius-md)] md:rounded-[var(--radius-md)] shadow-[var(--elevation-sheet)] pb-[env(safe-area-inset-bottom,16px)] overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-200 ${className}`}
       >
         {/* Grab Handle */}
         <div className="md:hidden flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-[var(--color-line-strong)]" />
+          <div className="w-10 h-1 rounded-full bg-[var(--line-strong)]" />
         </div>
 
         {/* Header */}
-        <div className="px-5 py-3.5 border-b border-[var(--color-line-hairline)] flex items-center justify-between shrink-0">
-          <h2 className="text-[16px] font-semibold text-[var(--color-ink-primary)] tracking-[-0.01em]">
+        <div className="px-5 py-3.5 border-b border-[var(--line-subtle)] flex items-center justify-between shrink-0">
+          <h2 className="text-[16px] font-semibold text-[var(--ink-primary)] tracking-[-0.01em]">
             {title ?? ""}
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close sheet"
-            className="p-1.5 text-[var(--color-ink-secondary)] hover:text-[var(--color-ink-primary)] rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-[var(--color-accent)]"
+            className="p-1.5 text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] rounded-[var(--radius-sm)] focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
           >
             ✕
           </button>
