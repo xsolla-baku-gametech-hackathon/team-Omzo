@@ -24,6 +24,7 @@ export async function GET(
     return NextResponse.json({
       valid: true,
       grantId: grant.id,
+      userId: payload.userId,
       campaignId: campaign.id,
       campaignTitle: campaign.title,
       buildKind: campaign.buildKind,

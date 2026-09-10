@@ -8,6 +8,8 @@ import { WatermarkedFrame } from "@/components/WatermarkedFrame";
 
 interface ValidationResponse {
   valid: boolean;
+  userId: string;
+  campaignId: string;
   campaignTitle: string;
   buildKind: string;
   buildUrl: string;
@@ -142,6 +144,8 @@ export default function SessionPage() {
           <WatermarkedFrame
             watermarkId={data.watermarkId}
             campaignTitle={data.campaignTitle}
+            campaignId={data.campaignId}
+            reporterId={data.userId}
           />
 
           <div className="p-4 bg-paper border-t border-hairline flex flex-col sm:flex-row items-center justify-between gap-4 text-label text-slate">
