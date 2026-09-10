@@ -8,7 +8,10 @@ const alias = { "@": fileURLToPath(new URL("./src", import.meta.url)) };
 // domain/ is pure and runs in Node in milliseconds; only components need a DOM.
 export default defineConfig({
   test: {
-    passWithNoTests: true,
+    // Deliberately not passWithNoTests. It was set when neither project had
+    // tests yet, and it went on to hide a broken one: jsdom could not start
+    // at all, the ui project found nothing to run, and the suite reported
+    // green. A project with no tests is a bug, not a pass.
     projects: [
       {
         resolve: { alias },
