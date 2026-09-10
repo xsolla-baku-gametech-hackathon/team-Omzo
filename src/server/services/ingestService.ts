@@ -14,6 +14,7 @@ import type {
   SystemInfo,
 } from "@/domain/triage/types";
 import { db } from "@/server/db";
+import { campaignEvents } from "@/server/events";
 
 /**
  * Ingest orchestration: load, decide, persist.
@@ -302,6 +303,35 @@ export async function ingestReport(input: IngestInput): Promise<IngestOutcome> {
       });
     }
   });
+
+  campaignEvents.emit({
+    type: "report_ingested",
+    payload: {
+      reportId,
+      campaignId: input.campaignId,
+      body: input.body,
+      scene: input.gameState.scene,
+      isNoise: result.report.isNoise,
+      issueId,
+      issueTitle: issue?.title ?? null,
+      createdAt: incoming.createdAt,
+    },
+  });
+
+  if (issue !== null) {
+    campaignEvents.emit({
+      type: decision.kind === "new" ? "issue_created" : "issue_updated",
+      payload: {
+        campaignId: input.campaignId,
+        issueId: issue.id,
+        title: issue.title,
+        category: issue.category,
+        severity: issue.severity,
+        occurrenceCount: issue.reports.length,
+        status: "OPEN",
+      },
+    });
+  }
 
   return {
     reportId,
