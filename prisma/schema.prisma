@@ -1,6 +1,16 @@
-// The models land in Phase 2, as one migration carrying every §0.5 delta.
-// This file exists from Phase 0 so CI can validate it and generate a client
-// before typecheck.
+// The whole data model, in one migration (SPEC.md §4, §0.5).
+//
+// Three fields exist here that §4 does not list, each required by another
+// section rather than invented:
+//   Report.clientReportId    — §7 has the overlay retry with backoff, so
+//                              ingest must be idempotent or a retry
+//                              double-counts an occurrence.
+//   Report.isPossibleDuplicate — §5.3 holds borderline reports for one-click
+//                              confirm/split; they are attached to an issue
+//                              without counting towards it.
+//   Report.normalisedBody    — cached alongside tokens for the same reason
+//                              tokens are cached: severity re-reads it on
+//                              every attach.
 
 generator client {
   provider = "prisma-client-js"
@@ -9,4 +19,208 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  displayName  String
+  role         Role      @default(TESTER)
+  signalScore  Int       @default(100) // 0–200, starts neutral
+  birthDate    DateTime? // age is computed server-side at NDA signing
+  createdAt    DateTime  @default(now())
+
+  studio        Studio?
+  ndaSignatures NdaSignature[]
+  reports       Report[]
+  ledgerEntries LedgerEntry[]
+  accessGrants  AccessGrant[]
+}
+
+enum Role {
+  TESTER
+  STUDIO
+}
+
+model Studio {
+  id        String     @id @default(cuid())
+  name      String
+  ownerId   String     @unique
+  owner     User       @relation(fields: [ownerId], references: [id])
+  campaigns Campaign[]
+}
+
+model Campaign {
+  id              String         @id @default(cuid())
+  studioId        String
+  studio          Studio         @relation(fields: [studioId], references: [id])
+  title           String
+  pitch           String // one paragraph shown to testers
+  testFocus       String // "what we need you to break"
+  buildKind       BuildKind
+  buildUrl        String // internal path or external link
+  status          CampaignStatus @default(OPEN)
+  maxTesters      Int            @default(200)
+  ndaBodyMd       String
+  rewardPoolTotal Int            @default(0) // in coins
+  rewardPerIssue  Int            @default(50)
+  revokedAt       DateTime? // set → every live grant is invalid at once
+  createdAt       DateTime       @default(now())
+
+  reports       Report[]
+  issues        Issue[]
+  ndaSignatures NdaSignature[]
+  accessGrants  AccessGrant[]
+}
+
+enum BuildKind {
+  WEB_EMBED
+  DOWNLOAD
+  EXTERNAL_LINK
+}
+
+enum CampaignStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+model NdaSignature {
+  id          String   @id @default(cuid())
+  userId      String
+  campaignId  String
+  typedName   String
+  ndaBodyHash String // sha256 of the exact text signed
+  ipHash      String // sha256(ip + APP_SALT) — never the raw address
+  userAgent   String
+  signedAt    DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id])
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@unique([userId, campaignId])
+}
+
+model AccessGrant {
+  id              String    @id @default(cuid())
+  userId          String
+  campaignId      String
+  nonce           String    @unique // single use, rewritten on re-issuance
+  watermarkId     Int       @unique // globally unique, 16-bit, from a sequence
+  issuedAt        DateTime  @default(now())
+  expiresAt       DateTime
+  consumedAt      DateTime?
+  uaHash          String
+  issuanceCount   Int       @default(1) // re-issuances in the current window
+  windowStartedAt DateTime  @default(now()) // rolling 1h rate-limit window
+
+  user     User     @relation(fields: [userId], references: [id])
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  // One row per tester per campaign, for life. Re-issuance updates it in
+  // place and keeps watermarkId, which is what lets a decoded frame name a
+  // person rather than a session.
+  @@unique([userId, campaignId])
+}
+
+model Report {
+  id             String   @id @default(cuid())
+  campaignId     String
+  reporterId     String
+  body           String
+  screenshotData String?  @db.Text // data URL: ≤1280px wide, JPEG q0.8, ≤2 MB
+  gameState      Json // scene, coords, playtimeSec
+  systemInfo     Json // os, browser, gpuRenderer, screen, memory
+  consoleTail    String[] // last 50 lines
+
+  // Cached deterministic derivations. Recomputing these on every ingest for
+  // every report in the campaign is the one thing that would not scale.
+  signature      String
+  tokens         String[]
+  normalisedBody String
+
+  issueId             String?
+  isNoise             Boolean @default(false)
+  isPossibleDuplicate Boolean @default(false)
+
+  // Supplied by the client so a retried submission is recognised rather than
+  // counted twice. Unique per campaign, not globally.
+  clientReportId String?
+
+  createdAt DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  reporter User     @relation(fields: [reporterId], references: [id])
+  issue    Issue?   @relation(fields: [issueId], references: [id])
+
+  @@unique([campaignId, clientReportId])
+  @@index([campaignId, createdAt])
+  @@index([issueId])
+}
+
+model Issue {
+  id              String        @id @default(cuid())
+  campaignId      String
+  title           String
+  category        IssueCategory
+  severity        Severity
+  status          IssueStatus   @default(OPEN)
+  firstReporterId String
+  occurrenceCount Int           @default(1)
+  signature       String
+  sharedTraits    Json // {"gpu":{"AMD":16,"NVIDIA":2}, ...}
+  createdAt       DateTime      @default(now())
+  verifiedAt      DateTime?
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  reports  Report[]
+
+  @@index([campaignId, severity])
+}
+
+enum IssueCategory {
+  CRASH
+  VISUAL
+  GAMEPLAY
+  PERFORMANCE
+  AUDIO
+  UX
+}
+
+enum Severity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum IssueStatus {
+  OPEN
+  VERIFIED
+  REJECTED
+  FIXED
+}
+
+model LedgerEntry {
+  id             String       @id @default(cuid())
+  userId         String
+  campaignId     String
+  issueId        String?
+  amount         Int
+  reason         LedgerReason
+  // The idempotency mechanism itself: insert, catch the unique violation,
+  // return the existing row. Never SELECT-then-INSERT, which races.
+  idempotencyKey String       @unique
+  createdAt      DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([campaignId])
+}
+
+enum LedgerReason {
+  ISSUE_VERIFIED
+  FIRST_REPORTER_BONUS
+  MANUAL_ADJUSTMENT
 }
