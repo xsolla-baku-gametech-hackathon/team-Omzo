@@ -156,8 +156,13 @@ function modalSignature(reports: readonly PreparedReport[]): string {
  * Rebuilds every derived field from the issue's occurrences. Called on create
  * and on every attach, so nothing can drift out of step with the reports that
  * justify it.
+ *
+ * Exported because the server reconstructs issues from database rows with it
+ * too. Every column on the Issue table is a materialised view of its reports,
+ * so rebuilding through this one function means stored state cannot drift
+ * into something clustering would never have produced.
  */
-function rebuild(
+export function rebuildIssue(
   id: string,
   reports: readonly PreparedReport[],
   possibleDuplicates: readonly PreparedReport[],
@@ -245,7 +250,7 @@ export function ingest(
 
   const issues = state.issues.map((issue) => {
     if (decision.kind === "attach" && decision.issueId === issue.id) {
-      return rebuild(
+      return rebuildIssue(
         issue.id,
         [...issue.reports, report],
         issue.possibleDuplicates,
@@ -253,7 +258,7 @@ export function ingest(
       );
     }
     if (decision.kind === "possible" && decision.issueId === issue.id) {
-      return rebuild(
+      return rebuildIssue(
         issue.id,
         issue.reports,
         [...issue.possibleDuplicates, report],
@@ -265,7 +270,7 @@ export function ingest(
 
   if (decision.kind === "new") {
     issues.push(
-      rebuild(`issue:${report.id}`, [report], [], campaignReportCount),
+      rebuildIssue(`issue:${report.id}`, [report], [], campaignReportCount),
     );
   }
 
