@@ -1,173 +1,221 @@
 /*
- * REPRO Design Tokens — UI_SPEC.md §2
- * Single source of truth for color, spacing, typography, radius, and elevation.
+ * REPRO Design Tokens — UI_SPEC_V2_DARK.md §1, §3, §4
+ * Dark is the root. There is no light theme in v1 (V2 §0, reversal 1).
+ *
+ * Families not defined by V2 (space, radius, elevation, motion) are carried
+ * forward from UI_SPEC.md §2, since V2 replaces that section without
+ * restating them and Rule 1 forbids literals in components.
+ *
+ * Contrast audit: see the block at the foot of this file (V2 §7).
  */
 
 :root {
-  /* Surface — Light */
-  --surface-page: #F2F4F3;
-  --surface-raised: #FAFBFA;
-  --surface-sunken: #E8EBEA;
+  color-scheme: dark;
 
-  /* Ink — Light */
-  --ink-primary: #141A18;
-  --ink-secondary: #5B6763;
-  --ink-tertiary: #8D9995;
+  /* --- Surfaces (V2 §1) ---------------------------------------------
+     Near-black with a violet cast, not neutral. #08070C shares its hue
+     with the accent so the bloom reads as light from the page rather
+     than a gradient pasted on top. */
+  --surface-page: #08070c;
+  --surface-raised: #0f0e15;
+  --surface-overlay: #16141f;
+  --surface-sunken: #050409;
 
-  /* Lines & Borders — Light */
-  --line-hairline: #DCE1DF;
-  --line-strong: #C2C9C6;
+  /* Secondary-button hover fill (V2 §6). Alpha so it sits on any surface. */
+  --surface-hover-subtle: rgba(255, 255, 255, 0.03);
 
-  /* Semantics & Accents — Light */
-  --accent: #0F5E58;
-  --accent-soft: #DCEAE8;
-  --alert: #C13B22;
-  --alert-soft: #F8E4DF;
-  --warn: #8A5A12;
-  --neutral-mark: #A8B2AE;
+  /* --- Lines (V2 §1) ------------------------------------------------
+     Alpha, not solid hex - one set must sit correctly on page,
+     raised, overlay and sunken. */
+  --line-subtle: rgba(255, 255, 255, 0.06);
+  --line-medium: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.16);
 
-  /* Typography Scale */
-  --type-display-size: 2.75rem;
-  --type-display-lh: 1.05;
-  --type-display-ls: -0.03em;
-  --type-display-weight: 600;
+  /* --- Text (V2 §1) -------------------------------------------------
+     Never pure white. --ink-tertiary clears 3:1 but not 4.5:1, so it is
+     permitted for metadata only - never for text a user must read to act. */
+  --ink-primary: #edebf2;
+  --ink-secondary: #a19db0;
+  --ink-tertiary: #6b6779;
 
-  --type-title-size: 1.625rem;
-  --type-title-lh: 1.2;
+  /* --- Accent - violet (V2 §1) --------------------------------------
+     Brand and interaction only: buttons, links, focus rings, bloom.
+     Never a state colour. Nothing on the board turns violet to mean
+     something - except the "similar issues" link, which is an
+     interaction, not a state. */
+  --accent: #8b5cf6;
+  --accent-hover: #9d74f8;
+  --accent-muted: #6d3fe0;
+  --accent-glow: rgba(139, 92, 246, 0.55); /* bloom only */
+  --accent-wash: rgba(139, 92, 246, 0.1); /* selected rows, pill fill */
+
+  /* ADDED - not in V2. Violet *text* colour.
+     #8B5CF6 measures 4.74:1 on --surface-page but 4.53:1 on
+     --surface-raised and 4.39:1 on --accent-wash. V2 §7 instructs:
+     "If it fails, use --accent-hover for text and keep --accent for
+     fills." It fails on two of the three surfaces it appears on, so
+     this alias exists to make the rule enforceable rather than
+     remembered. Fills, rings and bloom keep --accent. */
+  --accent-text: var(--accent-hover);
+
+  /* ADDED - not in V2. Foreground for a filled --accent button.
+     V2 §6 specifies #FFFFFF, which measures 4.23:1 against #8B5CF6 -
+     below AA for 14px/500 text. Dark-on-violet measures 4.74:1 and
+     keeps the fill at full brand strength. To go back to white-on-
+     violet, set this to #FFFFFF and change the primary fill to
+     --accent-muted (6.11:1). */
+  --accent-on-fill: var(--surface-page);
+
+  /* --- State - the board's working colours (V2 §1) ------------------
+     Three state colours, one job each: critical, high, verified.
+     Medium and low are grey on purpose; the eye should slide past them.
+     A fourth state wants a label, not a hue. */
+  --sev-critical: #ff6b4a;
+  --sev-critical-wash: rgba(255, 107, 74, 0.12);
+  --sev-high: #f0a63c;
+  --sev-medium: #6b6779; /* deliberately == --ink-tertiary */
+  --sev-low: #3a3745;
+  --state-verified: #3dd9a4;
+  --state-verified-wash: rgba(61, 217, 164, 0.12);
+
+  /* --- Bloom (V2 §2) - Stage surfaces only, never the Console -------
+     Tokenised so the mobile halving in §2.4 is a media-query override
+     here rather than a literal inside three components. */
+  --bloom-halo-w: min(1100px, 130vw);
+  --bloom-halo-h: 420px;
+  --bloom-halo-blur: 60px;
+  --bloom-ambient-size: 720px;
+  --bloom-ambient-blur: 90px;
+  --bloom-ambient-tint: rgba(139, 92, 246, 0.14);
+  --bloom-halo-mid: rgba(139, 92, 246, 0.18);
+  --edge-lit-peak: rgba(255, 255, 255, 0.14);
+  --mark-scatter: rgba(255, 255, 255, 0.14); /* collapse figure, V2 §4.3 */
+
+  /* --- Type (V2 §3) -------------------------------------------------
+     One family, Geist Sans. Negative tracking scales with size and is
+     never applied to body text. */
+  --type-hero-size: clamp(2.5rem, 1.5rem + 3.2vw, 3.75rem); /* 40 -> 60 */
+  --type-hero-lh: 1.02;
+  --type-hero-ls: -0.035em;
+  --type-hero-weight: 600;
+
+  --type-section-size: clamp(1.875rem, 1.25rem + 1.6vw, 2.5rem); /* 30 -> 40 */
+  --type-section-lh: 1.1;
+  --type-section-ls: -0.03em;
+  --type-section-weight: 600;
+
+  --type-title-size: 1.5rem; /* 24px */
+  --type-title-lh: 1.25;
   --type-title-ls: -0.02em;
   --type-title-weight: 600;
 
-  --type-heading-size: 1.125rem;
+  --type-heading-size: 1.0625rem; /* 17px */
   --type-heading-lh: 1.35;
   --type-heading-ls: -0.01em;
   --type-heading-weight: 550;
 
-  --type-body-size: 0.9375rem;
-  --type-body-lh: 1.6;
+  --type-body-size: 0.9375rem; /* 15px */
+  --type-body-lh: 1.65;
   --type-body-ls: 0;
   --type-body-weight: 400;
 
-  --type-ui-size: 0.875rem;
+  --type-ui-size: 0.875rem; /* 14px */
   --type-ui-lh: 1.45;
   --type-ui-ls: 0;
   --type-ui-weight: 450;
 
-  --type-meta-size: 0.8125rem;
+  --type-meta-size: 0.8125rem; /* 13px */
   --type-meta-lh: 1.4;
-  --type-meta-ls: 0.005em;
+  --type-meta-ls: 0.004em;
   --type-meta-weight: 450;
 
-  /* Spacing Scale (4px steps) */
-  --space-1: 0.25rem;  /* 4px */
-  --space-2: 0.5rem;   /* 8px */
-  --space-3: 0.75rem;  /* 12px */
-  --space-4: 1rem;     /* 16px */
-  --space-5: 1.25rem;  /* 20px */
-  --space-6: 1.5rem;   /* 24px */
-  --space-8: 2rem;     /* 32px */
-  --space-10: 2.5rem;  /* 40px */
-  --space-12: 3rem;    /* 48px */
-  --space-16: 4rem;    /* 64px */
+  --type-pill-size: 0.75rem; /* 12px - eyebrow pills only */
+  --type-pill-lh: 1;
+  --type-pill-ls: 0.02em;
+  --type-pill-weight: 500;
 
-  /* Radius */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-full: 9999px;
+  --type-mono-size: 0.78125rem; /* 12.5px */
+  --type-mono-lh: 1.5;
 
-  /* Elevation */
-  --elevation-sheet: 0 -4px 24px rgba(0, 0, 0, 0.12);
-  --elevation-modal: 0 16px 48px rgba(0, 0, 0, 0.2);
+  /* Numeric emphasis inside the traits sentence (V2 §5.3). */
+  --type-weight-figure: 550;
 
-  /* Motion */
+  /* --- Stage layout (V2 §4.1) ---------------------------------------- */
+  --stage-section-y: clamp(96px, 12vw, 160px);
+  --stage-measure: 620px;
+  --stage-container: 1120px;
+  --stage-hero-sub-measure: 52ch; /* V2 §4.3 */
+
+  /* --- Console layout (V2 §5) ---------------------------------------
+     Every literal V2 §5 states, as a token, per Rule 1. */
+  --console-topbar-h: 56px;
+  --console-pad: 24px; /* 16px on mobile, overridden below */
+  --console-max: 1440px;
+  --console-gutter: 32px;
+  --console-split-left: 62%;
+  --console-split-right: 38%;
+  --console-row-h: 72px;
+  --console-row-pad: 16px;
+  --console-count-col: 64px;
+  --stream-time-col: 52px;
+  --console-tail-max: 240px;
+  --forensics-drop-h: 280px;
+  --body-measure: 62ch; /* V2 §3 */
+
+  /* --- Space - carried from UI_SPEC §2, 4px steps -------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* --- Radius -------------------------------------------------------
+     UI_SPEC §2 mandated three values by role. V2 §5-§6 names five
+     distinct radii by role (4 screenshot, 8 button, 10 stream,
+     12 drop zone, 14 overlay). V2 supersedes §2, so five it is -
+     but still by role, never one value on everything. */
+  --radius-xs: 4px; /* screenshot thumbnails */
+  --radius-sm: 8px; /* buttons, inputs */
+  --radius-md: 10px; /* stream column, panels */
+  --radius-lg: 12px; /* forensics drop zone */
+  --radius-xl: 14px; /* modal, report panel */
+  --radius-full: 999px; /* pills, avatars */
+
+  /* --- Elevation - carried from UI_SPEC §2. Exactly two. ------------
+     Rows and panels get none; they are separated by space and hairlines. */
+  --elevation-sheet: 0 -4px 28px rgba(0, 0, 0, 0.55);
+  --elevation-modal: 0 16px 56px rgba(0, 0, 0, 0.68);
+
+  /* --- Focus (UI_SPEC §5, V2 §6) ------------------------------------- */
+  --focus-ring: 2px;
+  --focus-offset: 2px;
+
+  /* --- Motion - carried from UI_SPEC §2 ------------------------------ */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --dur-fast: 120ms;
   --dur-base: 220ms;
   --dur-slow: 420ms;
-
-  /* Backwards compatibility aliases during migration */
-  --color-paper: var(--surface-page);
-  --color-raised: var(--surface-raised);
-  --color-ink: var(--ink-primary);
-  --color-slate: var(--ink-secondary);
-  --color-hairline: var(--line-hairline);
-  --color-verified: var(--accent);
-  --color-critical: var(--alert);
-  --color-sev-critical: var(--alert);
-  --color-sev-high: var(--warn);
-  --color-sev-medium: var(--neutral-mark);
-  --color-sev-low: var(--line-strong);
-  --text-figure: var(--type-display-size);
-  --text-label: var(--type-meta-size);
-  --text-label-lg: var(--type-ui-size);
-  --text-body: var(--type-body-size);
-  --container-measure: 68ch;
-  --ease-collapse: var(--ease-standard);
-  --duration-collapse: 1600ms;
+  --dur-collapse: 1600ms;
+  --dur-stream-flash: 1000ms;
 }
 
-[data-theme="dark"] {
-  /* Surface — Dark (derived from green-teal root) */
-  --surface-page: #0E1413;
-  --surface-raised: #161D1B;
-  --surface-sunken: #0A100F;
-
-  /* Ink — Dark */
-  --ink-primary: #E4EAE7;
-  --ink-secondary: #94A19D;
-  --ink-tertiary: #68746F;
-
-  /* Lines & Borders — Dark */
-  --line-hairline: #232C2A;
-  --line-strong: #33403C;
-
-  /* Semantics & Accents — Dark */
-  --accent: #3FA79C;
-  --accent-soft: #12312E;
-  --alert: #E4654A;
-  --alert-soft: #3A1B14;
-  --warn: #D48E28;
-  --neutral-mark: #5E6A66;
-
-  /* Elevation adjustments in dark */
-  --elevation-sheet: 0 -4px 28px rgba(0, 0, 0, 0.45);
-  --elevation-modal: 0 16px 56px rgba(0, 0, 0, 0.6);
-}
-
-@theme {
-  --color-surface-page: var(--surface-page);
-  --color-surface-raised: var(--surface-raised);
-  --color-surface-sunken: var(--surface-sunken);
-
-  --color-ink-primary: var(--ink-primary);
-  --color-ink-secondary: var(--ink-secondary);
-  --color-ink-tertiary: var(--ink-tertiary);
-
-  --color-line-hairline: var(--line-hairline);
-  --color-line-strong: var(--line-strong);
-
-  --color-accent: var(--accent);
-  --color-accent-soft: var(--accent-soft);
-  --color-alert: var(--alert);
-  --color-alert-soft: var(--alert-soft);
-  --color-warn: var(--warn);
-  --color-neutral-mark: var(--neutral-mark);
-
-  /* Backwards compatibility colors */
-  --color-paper: var(--surface-page);
-  --color-raised: var(--surface-raised);
-  --color-ink: var(--ink-primary);
-  --color-slate: var(--ink-secondary);
-  --color-hairline: var(--line-hairline);
-  --color-verified: var(--accent);
-  --color-critical: var(--alert);
-  --color-sev-critical: var(--alert);
-  --color-sev-high: var(--warn);
-  --color-sev-medium: var(--neutral-mark);
-  --color-sev-low: var(--line-strong);
-
-  /* Typography roles */
-  --font-sans: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+/* Mobile: halve every bloom dimension, blur to 40px (V2 §2.4).
+   Large blurs are the single most likely cause of a janky landing
+   page on a mid-range Android. */
+@media (max-width: 767px) {
+  :root {
+    --bloom-halo-w: min(550px, 130vw);
+    --bloom-halo-h: 210px;
+    --bloom-halo-blur: 40px;
+    --bloom-ambient-size: 360px;
+    --bloom-ambient-blur: 40px;
+    --console-pad: 16px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -175,6 +223,109 @@
     --dur-fast: 0ms;
     --dur-base: 0ms;
     --dur-slow: 0ms;
-    --duration-collapse: 0ms;
+    --dur-collapse: 0ms;
+    --dur-stream-flash: 0ms;
   }
 }
+
+@theme {
+  --color-surface-page: var(--surface-page);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-hover-subtle: var(--surface-hover-subtle);
+
+  --color-ink-primary: var(--ink-primary);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-tertiary: var(--ink-tertiary);
+
+  --color-line-subtle: var(--line-subtle);
+  --color-line-medium: var(--line-medium);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-text: var(--accent-text);
+  --color-accent-wash: var(--accent-wash);
+  --color-accent-on-fill: var(--accent-on-fill);
+
+  --color-sev-critical: var(--sev-critical);
+  --color-sev-critical-wash: var(--sev-critical-wash);
+  --color-sev-high: var(--sev-high);
+  --color-sev-medium: var(--sev-medium);
+  --color-sev-low: var(--sev-low);
+  --color-state-verified: var(--state-verified);
+  --color-state-verified-wash: var(--state-verified-wash);
+
+  --font-sans:
+    var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* --- Migration shims - DELETE BEFORE MERGE -------------------------
+   UI_SPEC §9.1 says keep every token name that still applies; V2 §1
+   says replace the file entirely. The current build has ~160 uses of
+   the old alias classes (text-slate x41, border-hairline x36,
+   text-ink x20, bg-paper x18, bg-raised x14, bg-ink x8, text-paper x7,
+   text-verified x5, text-critical x4). Deleting the aliases in the
+   token commit breaks every screen at once and makes the Console
+   restyle unreviewable. These stay for exactly as long as that
+   restyle takes, then go. Note bg-ink / text-paper are the old
+   inverted primary button and must become --accent, not be
+   re-pointed. */
+@theme {
+  --color-paper: var(--surface-page);
+  --color-raised: var(--surface-raised);
+  --color-ink: var(--ink-primary);
+  --color-slate: var(--ink-secondary);
+  --color-hairline: var(--line-subtle);
+  --color-verified: var(--state-verified);
+  --color-critical: var(--sev-critical);
+
+  /* Old variable names still referenced as arbitrary values, e.g.
+     border-[var(--color-line-hairline)]. Without these the property is
+     invalid at computed-value time and falls back to currentColor,
+     which makes the intermediate commits impossible to review. */
+  --color-line-hairline: var(--line-subtle);
+  --color-alert: var(--sev-critical);
+  --color-alert-soft: var(--sev-critical-wash);
+  --color-warn: var(--sev-high);
+  --color-neutral-mark: var(--sev-medium);
+  --color-accent-soft: var(--accent-wash);
+}
+
+/* === CONTRAST AUDIT (V2 §7) - computed, not eyeballed ===============
+   On --surface-page #08070C:
+     --ink-primary    #EDEBF2  16.98:1  PASS (target >= 12)
+     --ink-secondary  #A19DB0   7.61:1  PASS (>= 4.5)
+     --ink-tertiary   #6B6779   3.67:1  PASS (>= 3) - metadata ONLY
+     --accent         #8B5CF6   4.74:1  marginal; see below
+     --accent-hover   #9D74F8   6.01:1  PASS - used for all violet text
+     --sev-critical   #FF6B4A   7.13:1  PASS
+     --state-verified #3DD9A4  11.15:1  PASS
+     --sev-critical on --sev-critical-wash (#261313)  6.29:1  PASS
+
+   --accent as text on other surfaces: raised 4.53, overlay 4.30,
+   accent-wash 4.39 - at or under AA. Hence --accent-text (#9D74F8),
+   which measures 6.01 / 5.75 / 5.45 / 5.56 on the same four.
+
+   Over the halo, page + accent composited at the effective alpha
+   remaining after blur:
+     a=0.20  ink1 14.08  ink2 6.31  accent-text 4.98  ink3 3.04
+     a=0.30  ink1 12.26  ink2 5.50  accent-text 4.34  ink3 2.65
+   Rules that follow: --ink-tertiary never renders over bloom;
+   violet text never renders over bloom; hero content sits where
+   effective alpha is <= 0.20, i.e. below the arc's brightest band.
+
+   Other values on record:
+     --sev-high #F0A63C on page          9.77:1
+     #FFFFFF on --accent fill            4.23:1  (why --accent-on-fill
+                                                  is dark, not white)
+     --accent-on-fill on --accent fill   4.74:1  PASS
+     --sev-low #3A3745 on page           1.73:1  decorative only;
+       severity is never colour-alone (UI_SPEC §5), the label and
+       count carry it.
+   ================================================================== */

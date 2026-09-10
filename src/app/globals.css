@@ -4,11 +4,12 @@
 html {
   -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
+  background-color: var(--surface-page);
 }
 
 body {
-  background-color: var(--color-surface-page);
-  color: var(--color-ink-primary);
+  background-color: var(--surface-page);
+  color: var(--ink-primary);
   font-family: var(--font-sans);
   font-size: var(--type-body-size);
   line-height: var(--type-body-lh);
@@ -16,10 +17,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Accessible focus ring: 2px --accent, 2px offset (UI_SPEC §5) */
+::selection {
+  background-color: var(--accent-wash);
+  color: var(--ink-primary);
+}
+
+/* Accessible focus ring: 2px --accent, 2px offset (UI_SPEC §5, V2 §6).
+   Never removed, never replaced by a background change. */
 :focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline: var(--focus-ring) solid var(--accent);
+  outline-offset: var(--focus-offset);
   border-radius: var(--radius-sm);
 }
 
