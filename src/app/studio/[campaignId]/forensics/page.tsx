@@ -51,9 +51,8 @@ export default async function ForensicsPage(props: {
             Trace a leaked frame
           </h1>
           <p className="mt-3 text-body text-slate max-w-measure">
-            Every build session is watermarked with the tester&rsquo;s own
-            identifier, invisibly, in the brightness of the frame. Upload an
-            image and this reads it back.
+            Every build session carries the tester&rsquo;s own identifier in the
+            brightness of the frame. Upload an image and this reads it back.
           </p>
         </div>
 
@@ -71,6 +70,12 @@ export default async function ForensicsPage(props: {
             gone this page says so rather than guessing, because the cost of a
             confident wrong answer here is an accusation against the wrong
             person.
+          </p>
+          <p className="mt-3 text-label text-slate max-w-measure">
+            Nor is the mark strictly invisible. A two-unit step in brightness
+            disappears into a mid-tone, but against a near-black scene it is
+            around seven per cent contrast and a careful eye can find it. That
+            is the honest cost of a mark that also survives being screenshotted.
           </p>
         </section>
       </div>
