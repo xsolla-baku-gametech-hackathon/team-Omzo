@@ -27,13 +27,11 @@ interface WatermarkedFrameProps {
   readonly watermarkId: number;
   readonly campaignTitle: string;
   readonly campaignId?: string;
-  readonly reporterId?: string;
 }
 
 export function WatermarkedFrame({
   watermarkId,
   campaignId,
-  reporterId,
 }: WatermarkedFrameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   /** Whether the game loop is running. */
@@ -55,7 +53,11 @@ export function WatermarkedFrame({
       try {
         const imageData = context.getImageData(0, 0, FRAME_WIDTH, FRAME_HEIGHT);
         const marked = embedWatermark(
-          { width: imageData.width, height: imageData.height, data: imageData.data },
+          {
+            width: imageData.width,
+            height: imageData.height,
+            data: imageData.data,
+          },
           watermarkId,
         );
         const out = context.createImageData(FRAME_WIDTH, FRAME_HEIGHT);
@@ -67,11 +69,12 @@ export function WatermarkedFrame({
     }, REMARK_INTERVAL_MS);
 
     // Initialise the overlay.
-    if (campaignId && reporterId) {
+    // No reporter id is passed: the server reads the reporter from the
+    // session cookie or the build access token, never from the client.
+    if (campaignId) {
       initOverlay({
         endpoint: "/api/ingest",
         campaignId,
-        reporterId,
       });
     }
 
@@ -81,7 +84,7 @@ export function WatermarkedFrame({
       destroyOverlay();
       gameRunningRef.current = false;
     };
-  }, [watermarkId, campaignId, reporterId]);
+  }, [watermarkId, campaignId]);
 
   const exportFrame = useCallback(() => {
     const canvas = canvasRef.current;
@@ -98,7 +101,11 @@ export function WatermarkedFrame({
     ctx.drawImage(canvas, 0, 0, FRAME_WIDTH, FRAME_HEIGHT);
     const imageData = ctx.getImageData(0, 0, FRAME_WIDTH, FRAME_HEIGHT);
     const marked = embedWatermark(
-      { width: imageData.width, height: imageData.height, data: imageData.data },
+      {
+        width: imageData.width,
+        height: imageData.height,
+        data: imageData.data,
+      },
       watermarkId,
     );
     const out = ctx.createImageData(FRAME_WIDTH, FRAME_HEIGHT);
@@ -152,7 +159,8 @@ export function WatermarkedFrame({
             <kbd className="px-1.5 py-0.5 bg-raised border border-hairline rounded text-[11px] font-mono">
               F1
             </kbd>{" "}
-            (Shift+R) to report a bug, or click the button. Use arrow keys or WASD to move.
+            (Shift+R) to report a bug, or click the button. Use arrow keys or
+            WASD to move.
           </p>
           <div className="flex items-center gap-2">
             <button

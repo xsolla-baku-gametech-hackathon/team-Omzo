@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { authenticateIngest } from "@/server/auth/ingestAuth";
+import { rateLimit } from "@/server/security/rateLimiter";
 import {
   CampaignNotOpenError,
   ingestReport,
@@ -35,9 +37,9 @@ const systemInfo = z.object({
 });
 
 const ingestBody = z.object({
+  // No reporterId. The reporter is whoever the credential says it is; a
+  // client-supplied one is an impersonation primitive, not an input.
   campaignId: z.string().min(1),
-  // Supplied by the overlay from the authenticated session's userId.
-  reporterId: z.string().min(1),
   body: z.string().min(1).max(4000),
   gameState,
   systemInfo,
@@ -52,20 +54,38 @@ const ingestBody = z.object({
   clientReportId: z.string().min(1).max(200).optional(),
 });
 
-import { rateLimit } from "@/server/security/rateLimiter";
-
 export async function POST(request: Request): Promise<NextResponse> {
+  const principal = await authenticateIngest(request);
+  if (principal === null) {
+    return NextResponse.json(
+      {
+        error: "unauthenticated",
+        message:
+          "This report needs a valid session or build access token. Open the campaign from your access link and try again.",
+      },
+      { status: 401 },
+    );
+  }
+
   const clientIp =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
     "127.0.0.1";
 
-  const limitCheck = rateLimit(`ingest:${clientIp}`, 60, 1.0);
+  // Keyed on the authenticated user as well as the address: one tester
+  // behind a shared NAT should not exhaust everyone else's budget, and one
+  // user rotating addresses should not get a fresh budget each time.
+  const limitCheck = rateLimit(
+    `ingest:${principal.userId}:${clientIp}`,
+    60,
+    1.0,
+  );
   if (!limitCheck.allowed) {
     return NextResponse.json(
       {
         error: "rate_limit_exceeded",
-        message: "Too many bug reports filed in a short period. Please wait a moment.",
+        message:
+          "Too many bug reports filed in a short period. Please wait a moment.",
         retryAfterSec: limitCheck.retryAfterSec,
       },
       {
@@ -103,7 +123,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const outcome = await ingestReport(parsed.data);
+    const outcome = await ingestReport({
+      ...parsed.data,
+      // A grant token names its own campaign, so the body cannot redirect the
+      // report somewhere the grant does not cover.
+      campaignId: principal.campaignId ?? parsed.data.campaignId,
+      reporterId: principal.userId,
+    });
     return NextResponse.json(outcome, {
       status: outcome.deduplicated ? 200 : 201,
     });

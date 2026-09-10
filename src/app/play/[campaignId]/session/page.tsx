@@ -171,7 +171,6 @@ export default function SessionPage() {
             watermarkId={data.watermarkId}
             campaignTitle={data.campaignTitle}
             campaignId={data.campaignId}
-            reporterId={data.userId}
           />
 
           <div className="p-4 bg-[var(--surface-page)] border-t border-[var(--line-subtle)] flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-[var(--ink-secondary)]">

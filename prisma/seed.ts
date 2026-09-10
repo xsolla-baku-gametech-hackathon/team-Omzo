@@ -1,6 +1,8 @@
 import { hash } from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 
+import { signGrantToken } from "../src/domain/access/token";
+import { requireSecret } from "../src/server/config/secrets";
 import { BUG_TEMPLATES } from "./fixtures/bugTemplates";
 import { expandFixture } from "./fixtures/expand";
 
@@ -12,6 +14,11 @@ import { expandFixture } from "./fixtures/expand";
  * database works and nothing else: the numbers on the board would come from a
  * path no real report ever takes, and the first live report through the
  * overlay would be the first time the ingest path ran at all.
+ *
+ * Ingest is authenticated, so the seed mints a real build access token per
+ * tester and sends it as a bearer credential. It gets no special case on the
+ * server: a seed that took a backdoor would stop proving the auth path works,
+ * which is the same mistake as writing the rows directly.
  */
 
 const db = new PrismaClient();
@@ -140,13 +147,37 @@ async function main(): Promise<void> {
   const tally = new Map<string, number>();
   let deduplicated = 0;
 
+  const accessSecret = requireSecret("ACCESS_SECRET");
+  /** One token per tester, reused across that tester's reports. */
+  const tokens = new Map<string, string>();
+  const grantTokenFor = (reporterId: string): string => {
+    const existing = tokens.get(reporterId);
+    if (existing !== undefined) return existing;
+
+    const token = signGrantToken(
+      {
+        grantId: `seed-grant-${reporterId}`,
+        campaignId: CAMPAIGN_ID,
+        userId: reporterId,
+        watermarkId: 0,
+        // Long enough to outlast a full seed run of several hundred reports.
+        exp: Math.floor(Date.now() / 1000) + 60 * 60,
+      },
+      accessSecret,
+    );
+    tokens.set(reporterId, token);
+    return token;
+  };
+
   for (const [index, report] of reports.entries()) {
     const response = await fetch(`${BASE_URL}/api/ingest`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${grantTokenFor(report.reporterId)}`,
+      },
       body: JSON.stringify({
         campaignId: CAMPAIGN_ID,
-        reporterId: report.reporterId,
         body: report.body,
         gameState: report.gameState,
         systemInfo: report.systemInfo,

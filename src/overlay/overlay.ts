@@ -40,8 +40,16 @@ interface OverlayConfig {
   endpoint: string;
   /** Campaign ID for ingest. */
   campaignId: string;
-  /** Reporter ID (user ID from the session). */
-  reporterId: string;
+  /**
+   * Signed build access token, when the overlay is running inside a build
+   * served under an access grant. Sent as a bearer credential; the server
+   * reads the reporter and the campaign out of its signature.
+   *
+   * Omitted on our own first-party session page, where the httpOnly session
+   * cookie travels with the request instead. There is deliberately no
+   * reporter id here: the client does not get to say who it is.
+   */
+  accessToken?: string;
 }
 
 // ── State ────────────────────────────────────────────────────────────
@@ -67,13 +75,27 @@ async function flushQueue(): Promise<void> {
   while (queue.length > 0) {
     const item = queue[0];
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (config.accessToken) {
+        headers.Authorization = `Bearer ${config.accessToken}`;
+      }
+
       const res = await fetch(config.endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
+        // Same-origin by default so the session cookie is sent when the
+        // overlay runs on our own session page.
+        credentials: "include",
         body: JSON.stringify(item.payload),
       });
       if (res.ok || res.status === 422) {
         // Success or validation error — drop it either way.
+        queue.shift();
+      } else if (res.status === 401 || res.status === 403) {
+        // Retrying will not mint a credential. Say so rather than looping.
+        setStatus("Your session expired. Reopen your access link to report.");
         queue.shift();
       } else if (item.retries >= 5) {
         console.error("[repro] dropping report after 5 retries");
@@ -129,14 +151,14 @@ function findCanvas(): HTMLCanvasElement | null {
  * Source: src/styles/tokens.css (UI_SPEC_V2_DARK.md §1)
  */
 const OV = {
-  bg:       "#0F0E15",  /* --surface-raised  */
-  bgInput:  "#08070C",  /* --surface-page    */
-  border:   "rgba(255,255,255,0.10)", /* --line-medium  */
-  ink:      "#EDEBF2",  /* --ink-primary     */
-  inkMuted: "#A19DB0",  /* --ink-secondary   */
-  accent:   "#8B5CF6",  /* --accent          */
-  accentFg: "#EDEBF2",  /* --accent-on-fill  */
-  shadow:   "0 8px 32px rgba(0,0,0,0.55)",
+  bg: "#0F0E15" /* --surface-raised  */,
+  bgInput: "#08070C" /* --surface-page    */,
+  border: "rgba(255,255,255,0.10)" /* --line-medium  */,
+  ink: "#EDEBF2" /* --ink-primary     */,
+  inkMuted: "#A19DB0" /* --ink-secondary   */,
+  accent: "#8B5CF6" /* --accent          */,
+  accentFg: "#EDEBF2" /* --accent-on-fill  */,
+  shadow: "0 8px 32px rgba(0,0,0,0.55)",
 } as const;
 
 function createOverlay(): HTMLDivElement {
@@ -214,8 +236,12 @@ export function openOverlay(): void {
     const result = captureCanvas(canvas);
     if ("dataUrl" in result) {
       currentScreenshot = result;
-      const preview = overlayEl.querySelector("#repro-screenshot-preview") as HTMLElement | null;
-      const img = overlayEl.querySelector("#repro-screenshot-img") as HTMLImageElement | null;
+      const preview = overlayEl.querySelector(
+        "#repro-screenshot-preview",
+      ) as HTMLElement | null;
+      const img = overlayEl.querySelector(
+        "#repro-screenshot-img",
+      ) as HTMLImageElement | null;
       if (preview && img) {
         img.src = result.dataUrl;
         preview.style.display = "block";
@@ -229,7 +255,9 @@ export function openOverlay(): void {
   overlayEl.style.display = "block";
   isOpen = true;
 
-  const body = overlayEl.querySelector("#repro-body") as HTMLTextAreaElement | null;
+  const body = overlayEl.querySelector(
+    "#repro-body",
+  ) as HTMLTextAreaElement | null;
   body?.focus();
 }
 
@@ -239,10 +267,14 @@ export function closeOverlay(): void {
   isOpen = false;
   currentScreenshot = null;
 
-  const body = overlayEl.querySelector("#repro-body") as HTMLTextAreaElement | null;
+  const body = overlayEl.querySelector(
+    "#repro-body",
+  ) as HTMLTextAreaElement | null;
   if (body) body.value = "";
 
-  const preview = overlayEl.querySelector("#repro-screenshot-preview") as HTMLElement | null;
+  const preview = overlayEl.querySelector(
+    "#repro-screenshot-preview",
+  ) as HTMLElement | null;
   if (preview) preview.style.display = "none";
 
   setStatus("");
@@ -267,7 +299,9 @@ async function submitReport(): Promise<void> {
     return;
   }
 
-  const body = (overlayEl?.querySelector("#repro-body") as HTMLTextAreaElement | null)?.value?.trim();
+  const body = (
+    overlayEl?.querySelector("#repro-body") as HTMLTextAreaElement | null
+  )?.value?.trim();
   if (!body) {
     setStatus("Please describe what went wrong.");
     return;
@@ -281,7 +315,6 @@ async function submitReport(): Promise<void> {
 
   const payload: Record<string, unknown> = {
     campaignId: config.campaignId,
-    reporterId: config.reporterId,
     body,
     gameState,
     systemInfo,
@@ -295,7 +328,9 @@ async function submitReport(): Promise<void> {
 
   // Optimistic confirmation.
   setStatus("Report submitted ✓");
-  const bodyEl = overlayEl?.querySelector("#repro-body") as HTMLTextAreaElement | null;
+  const bodyEl = overlayEl?.querySelector(
+    "#repro-body",
+  ) as HTMLTextAreaElement | null;
   if (bodyEl) bodyEl.value = "";
 
   setTimeout(() => closeOverlay(), 800);
