@@ -22,6 +22,19 @@ export default defineConfig({
         },
       },
       {
+        resolve: { alias },
+        test: {
+          name: "integration",
+          environment: "node",
+          include: ["tests/integration/**/*.test.ts"],
+          // Real Postgres, one worker. These tests assert what the database
+          // guarantees under concurrency, so running them against a mock
+          // would assert only that the mock was written to agree.
+          fileParallelism: false,
+          testTimeout: 30_000,
+        },
+      },
+      {
         plugins: [react()],
         resolve: { alias },
         test: {

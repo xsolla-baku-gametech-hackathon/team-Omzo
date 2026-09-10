@@ -10,10 +10,26 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # prisma generate reads the datasource at generate time. Nothing in this
-      # job connects to a database — format, lint, typecheck, test and build
-      # are all offline — so a syntactically valid URL is enough.
-      DATABASE_URL: "postgresql://repro:repro@localhost:5434/repro?schema=public"
+      DATABASE_URL: "postgresql://repro:repro@localhost:5432/repro?schema=public"
+
+    services:
+      # The integration suite asserts what Postgres guarantees under
+      # concurrency — that a duplicate idempotency key is rejected — so it
+      # needs a real one. Asserting that against a mock would only prove the
+      # mock was written to agree with the code.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: repro
+          POSTGRES_PASSWORD: repro
+          POSTGRES_DB: repro
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U repro -d repro"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
 
     steps:
       - uses: actions/checkout@v4
@@ -34,4 +50,8 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+
+      - run: pnpm exec prisma migrate deploy
+      - run: pnpm test:integration
+
       - run: pnpm build
