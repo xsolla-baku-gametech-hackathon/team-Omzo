@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -20,7 +22,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     request.headers.get("x-real-ip") ??
     "127.0.0.1";
 
-  const limitCheck = rateLimit(`login:${clientIp}`, 10, 0.2);
+  const limitCheck = rateLimit(`login:ip:${clientIp}`, 10, 0.2);
   if (!limitCheck.allowed) {
     return NextResponse.json(
       {
@@ -59,6 +61,33 @@ export async function POST(request: Request): Promise<NextResponse> {
         })),
       },
       { status: 422 },
+    );
+  }
+
+  // Per-address throttling alone does not bound credential stuffing: an
+  // attacker with a pool of addresses gets a fresh budget from each one while
+  // grinding a single account. This second bucket follows the account instead.
+  //
+  // Keyed on a hash of the normalised address rather than the address itself,
+  // so an attacker cannot grow the in-memory map with arbitrarily long keys,
+  // and so the table does not become a list of who has accounts here. The
+  // capacity is deliberately generous: it must slow a machine without ever
+  // being reachable by someone mistyping their own password.
+  const accountKey = createHash("sha256")
+    .update(parsed.data.email.trim().toLowerCase())
+    .digest("hex");
+  const accountLimit = rateLimit(`login:account:${accountKey}`, 20, 0.1);
+  if (!accountLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: "rate_limit_exceeded",
+        message: "Too many login attempts. Please wait before trying again.",
+        retryAfterSec: accountLimit.retryAfterSec,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(accountLimit.retryAfterSec) },
+      },
     );
   }
 
