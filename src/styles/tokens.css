@@ -162,6 +162,13 @@
   --forensics-drop-h: 280px;
   --body-measure: 62ch; /* V2 §3 */
 
+  /* --- Controls (V2 §6) ---------------------------------------------
+     Stated as literals in V2 §6; tokenised per Rule 1. The touch height
+     also satisfies the 44px floor in UI_SPEC.md §0.5. */
+  --control-h: 40px;
+  --control-h-touch: 48px;
+  --control-pad-x: 20px;
+
   /* --- Space - carried from UI_SPEC §2, 4px steps -------------------- */
   --space-1: 0.25rem;
   --space-2: 0.5rem;

@@ -2,50 +2,55 @@ import { forwardRef } from "react";
 import type { ButtonHTMLAttributes } from "react";
 
 /**
- * Button — UI_SPEC.md §4
- * Three variants (primary, secondary, quiet).
- * One size on desktop, minimum 44px/48px height on touch targets.
- * Strict focus-visible state and token adherence.
+ * Button — UI_SPEC_V2_DARK.md §6
+ *
+ * Three variants. Flat: no gradient, no glow. The reference's buttons are
+ * flat and that restraint is why the page's actual bloom reads as light
+ * rather than as styling.
+ *
+ * Focus is a 2px --accent ring at 2px offset on all three, never removed
+ * and never replaced by a background change (UI_SPEC.md §5).
  */
-export type ButtonVariant = "primary" | "secondary" | "quiet" | "alert";
+export type ButtonVariant = "primary" | "secondary" | "quiet";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variant?: ButtonVariant;
 }
 
+const VARIANT: Record<ButtonVariant, string> = {
+  // --accent-on-fill rather than #FFFFFF: white on #8B5CF6 is 4.23:1,
+  // under AA for text at this size. See the audit in tokens.css.
+  primary:
+    "bg-[var(--accent)] text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)]",
+  secondary:
+    "bg-transparent text-[var(--ink-primary)] border border-[var(--line-medium)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-hover-subtle)]",
+  quiet:
+    "bg-transparent text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]",
+};
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "secondary", className = "", children, ...props }, ref) => {
-    let variantStyles = "";
-
-    switch (variant) {
-      case "primary":
-        variantStyles =
-          "bg-[var(--color-accent)] text-white hover:opacity-90 active:opacity-95";
-        break;
-      case "secondary":
-        variantStyles =
-          "bg-[var(--color-surface-raised)] text-[var(--color-ink-primary)] border border-[var(--color-line-hairline)] hover:border-[var(--color-line-strong)] active:bg-[var(--color-surface-sunken)]";
-        break;
-      case "quiet":
-        variantStyles =
-          "bg-transparent text-[var(--color-ink-primary)] hover:bg-[var(--color-surface-sunken)] active:opacity-80";
-        break;
-      case "alert":
-        variantStyles =
-          "bg-[var(--color-alert)] text-white hover:opacity-90 active:opacity-95";
-        break;
-    }
-
-    return (
-      <button
-        ref={ref}
-        className={`inline-flex items-center justify-center gap-2 px-4 py-2 min-h-[44px] md:min-h-[36px] rounded-[var(--radius-sm)] text-[14px] font-[450] tracking-[0] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-[var(--color-accent)] focus-visible:outline-offset-2 ${variantStyles} ${className}`}
-        {...props}
-      >
-        {children}
-      </button>
-    );
-  },
+  ({ variant = "secondary", className = "", children, ...props }, ref) => (
+    <button
+      ref={ref}
+      className={[
+        "inline-flex items-center justify-center gap-2 cursor-pointer",
+        "h-[var(--control-h-touch)] md:h-[var(--control-h)] px-[var(--control-pad-x)]",
+        "rounded-[var(--radius-sm)]",
+        "text-[length:var(--type-ui-size)] leading-[var(--type-ui-lh)] font-medium",
+        "transition-colors duration-[var(--dur-fast)] ease-[var(--ease-standard)]",
+        // Active drops 1px (§6). Translate, not a colour change.
+        "active:translate-y-px",
+        "disabled:opacity-40 disabled:cursor-not-allowed disabled:active:translate-y-0",
+        // Focus ring comes from the global :focus-visible rule so it cannot
+        // be dropped by a variant or overridden by a caller's className.
+        VARIANT[variant],
+        className,
+      ].join(" ")}
+      {...props}
+    >
+      {children}
+    </button>
+  ),
 );
 
 Button.displayName = "Button";
