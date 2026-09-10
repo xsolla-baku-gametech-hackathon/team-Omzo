@@ -30,8 +30,8 @@ CI uses the same version. pnpm via `corepack`. Postgres in Docker on host port *
 (container 5432), and `DATABASE_URL` uses 5434. (5433 was the decision; it is
 occupied on the build machine by an unrelated container, so the next free port
 was taken. The reason for the decision — never collide with a default 5432 —
-is unchanged.) Repo is public, named `repro`, commits
-straight to `main`.
+is unchanged.) Repo is the public team repo
+`xsolla-baku-gametech-hackathon/team-Omzo`, commits straight to `main`.
 
 **Scope.** Role is self-selected at register; a STUDIO registration also takes a studio
 name and creates the `Studio` row in the same transaction. One studio per user. No
