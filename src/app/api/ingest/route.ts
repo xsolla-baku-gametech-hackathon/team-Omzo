@@ -36,8 +36,7 @@ const systemInfo = z.object({
 
 const ingestBody = z.object({
   campaignId: z.string().min(1),
-  // TODO(phase-3): this comes from the session cookie once auth exists. Until
-  // then the endpoint trusts the caller, which is why nothing is deployed yet.
+  // Supplied by the overlay from the authenticated session's userId.
   reporterId: z.string().min(1),
   body: z.string().min(1).max(4000),
   gameState,

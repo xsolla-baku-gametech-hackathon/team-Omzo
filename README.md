@@ -76,15 +76,15 @@ The `src/domain/` boundary contains only pure functions: no Prisma, no React, no
 
 Triage collapses incoming bug reports using four distinct signals:
 
-1. **Lexical (TF-IDF)** (weight: 0.30) — Cosine similarity over normalized tokens.
-2. **Game State Proximity** (weight: 0.30) — Strict scene match (mismatch is a hard veto) plus Euclidean spatial distance on a bucketed 3D grid.
-3. **Log Signature** (weight: 0.25) — Normalised error line signatures with numbers, hashes, and dynamic IDs stripped.
-4. **Environment Overlap** (weight: 0.15) — GPU renderer, OS, and browser family tally overlap.
+1. **Lexical (TF-IDF)** (weight: 0.45) — Cosine similarity over normalized tokens.
+2. **Game State Proximity** (weight: 0.25) — Strict scene match (mismatch is a hard veto) plus Euclidean spatial distance on a bucketed 3D grid.
+3. **Log Signature** (weight: 0.20) — Normalised error line signatures with numbers, hashes, and dynamic IDs stripped.
+4. **Environment Overlap** (weight: 0.10) — GPU renderer, OS, and browser family tally overlap.
 
 ### Thresholds & Fallback
-- Combined score **≥ 0.68**: automatically attach report to existing issue cluster.
-- Combined score **0.50 – 0.68**: flagged as a *possible duplicate* for studio confirmation.
-- Combined score **< 0.50**: promoted as a new unique issue cluster.
+- Combined score **≥ 0.40**: automatically attach report to existing issue cluster.
+- Combined score **0.25 – 0.40**: flagged as a *possible duplicate* for studio confirmation.
+- Combined score **< 0.25**: promoted as a new unique issue cluster.
 - **Rule of Thumb**: *When in doubt, do not merge.* A duplicate issue is a minor inconvenience; a false merge hides a distinct bug.
 
 ### In-Memory Computation
@@ -110,7 +110,7 @@ IDF tables and cluster centroids are rebuilt entirely in memory on every ingest 
 Repro maintains strict offline test coverage across unit, domain, and UI components:
 
 ```bash
-# Run domain and UI test suites (186 passing tests)
+# Run domain and UI test suites (197 passing tests)
 pnpm test
 
 # Run database integration tests (concurrency & idempotency against Postgres)
