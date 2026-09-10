@@ -1,103 +1,207 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [mounted, setMounted] = useState(false);
+  const [animated, setAnimated] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setMounted(true);
+
+    if (!mql.matches) {
+      // Allow the DOM to render the scattered state first
+      const frame1 = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setAnimated(true);
+        });
+      });
+      return () => {
+        cancelAnimationFrame(frame1);
+      };
+    } else {
+      setAnimated(true);
+    }
+  }, []);
+
+  const marks = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 400; i++) {
+      // Scatter within a roughly 800x800 area
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 400 + 50; // away from center
+      const rx = Math.cos(angle) * radius;
+      const ry = Math.sin(angle) * radius;
+
+      arr.push({ id: i, rx, ry });
+    }
+    return arr;
+  }, []);
+
+  const blocks = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      // 12 blocks, 33 or 34 marks each
+      const start = Math.floor((i * 400) / 12);
+      const end = Math.floor(((i + 1) * 400) / 12);
+      return marks.slice(start, end);
+    });
+  }, [marks]);
+
+  return (
+    <div
+      style={{
+        backgroundColor: "var(--color-paper)",
+        color: "var(--color-ink)",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: "var(--font-sans)",
+      }}
+    >
+      <header
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "1.5rem 2rem",
+          borderBottom: "1px solid var(--color-hairline)",
+          fontSize: "var(--text-label)",
+          lineHeight: "var(--text-label--line-height)",
+        }}
+      >
+        <div style={{ fontFamily: "var(--font-mono)", fontWeight: "bold", fontSize: "1.125rem" }}>
+          Repro
         </div>
+        <nav style={{ display: "flex", gap: "1.5rem" }}>
+          <Link href="/play" style={{ color: "var(--color-slate)", textDecoration: "none" }}>
+            Play
+          </Link>
+          <Link href="/studio" style={{ color: "var(--color-slate)", textDecoration: "none" }}>
+            Studio
+          </Link>
+          <Link href="/login" style={{ color: "var(--color-slate)", textDecoration: "none" }}>
+            Log In
+          </Link>
+          <Link href="/register" style={{ color: "var(--color-slate)", textDecoration: "none" }}>
+            Register
+          </Link>
+        </nav>
+      </header>
+
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            maxWidth: "600px",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "2rem",
+            justifyContent: "center",
+            marginBottom: "3rem",
+          }}
+        >
+          {mounted &&
+            blocks.map((block, i) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "2px",
+                  width: "48px", // roughly 6x6 grid of 6px items (4px + 2px gap)
+                  alignContent: "flex-start",
+                }}
+              >
+                {block.map((mark) => {
+                  const transform = animated
+                    ? "translate(0px, 0px)"
+                    : `translate(${mark.rx}px, ${mark.ry}px)`;
+
+                  return (
+                    <div
+                      key={mark.id}
+                      style={{
+                        width: "6px",
+                        height: "6px",
+                        backgroundColor: "var(--color-verified)",
+                        transform,
+                        transition: "transform var(--duration-collapse) var(--ease-collapse)",
+                        willChange: "transform",
+                        borderRadius: "1px",
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ))}
+        </div>
+
+        {mounted && (
+          <div
+            style={{
+              textAlign: "center",
+              opacity: animated ? 1 : 0,
+              transition: "opacity var(--duration-collapse) var(--ease-collapse)",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "var(--text-body)",
+                lineHeight: "var(--text-body--line-height)",
+                color: "var(--color-ink)",
+                marginBottom: "2rem",
+              }}
+            >
+              400 raw playtest reports. 12 issues a developer can fix.
+            </p>
+
+            <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+              <Link
+                href="/studio"
+                style={{
+                  padding: "0.5rem 1rem",
+                  backgroundColor: "var(--color-ink)",
+                  color: "var(--color-paper)",
+                  borderRadius: "4px",
+                  textDecoration: "none",
+                  fontSize: "var(--text-label)",
+                  fontWeight: 500,
+                }}
+              >
+                I run a studio
+              </Link>
+              <Link
+                href="/play"
+                style={{
+                  padding: "0.5rem 1rem",
+                  backgroundColor: "var(--color-paper)",
+                  color: "var(--color-ink)",
+                  border: "1px solid var(--color-hairline)",
+                  borderRadius: "4px",
+                  textDecoration: "none",
+                  fontSize: "var(--text-label)",
+                  fontWeight: 500,
+                }}
+              >
+                I test games
+              </Link>
+            </div>
+          </div>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
