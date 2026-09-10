@@ -14,6 +14,7 @@ import type {
 } from "@/domain/triage/types";
 import { db } from "@/server/db";
 import { sharedTraitsOf, toPreparedReport } from "@/server/reportMapping";
+import { penaliseNoise } from "@/server/services/rewardService";
 import { campaignEvents } from "@/server/events";
 
 /**
@@ -299,6 +300,17 @@ export async function ingestReport(input: IngestInput): Promise<IngestOutcome> {
         status: "OPEN",
       },
     });
+  }
+
+  // Noise costs standing at the moment it is filed. Outside the transaction
+  // on purpose: a signal-score update that fails must never lose the report
+  // it was reacting to.
+  if (result.report.isNoise) {
+    try {
+      await penaliseNoise(input.reporterId);
+    } catch (error) {
+      console.error("[ingest] signal score update failed", error);
+    }
   }
 
   return {

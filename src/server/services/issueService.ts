@@ -4,6 +4,7 @@ import type { GameState, SystemInfo } from "@/domain/triage/types";
 import { rebuildIssue } from "@/domain/triage/cluster";
 import { db } from "@/server/db";
 import { sharedTraitsOf, toPreparedReport } from "@/server/reportMapping";
+import { payVerificationReward } from "@/server/services/rewardService";
 import { campaignEvents } from "@/server/events";
 import type { Issue, Prisma, Report, Severity } from "@prisma/client";
 
@@ -217,6 +218,12 @@ export async function verifyIssue(
       verifiedAt: new Date(),
     },
   });
+
+  // Pays the first reporter, once, however many times this is called. The
+  // reward is deliberately not inside the status update: an issue that is
+  // verified but whose payout failed is recoverable by verifying again, while
+  // a payout that succeeded against a status change that rolled back is not.
+  await payVerificationReward(updated.id);
 
   campaignEvents.emit({
     type: "issue_verified",
