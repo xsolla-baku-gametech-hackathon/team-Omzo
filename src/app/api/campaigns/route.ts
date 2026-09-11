@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { classifyBuildUrl } from "@/domain/campaigns/delivery";
 
+import { checkCampaignAllowance } from "@/server/services/billingService";
 import {
   createCampaign,
   getOpenCampaigns,
@@ -100,6 +101,22 @@ export async function POST(request: Request): Promise<NextResponse> {
         })),
       },
       { status: 422 },
+    );
+  }
+
+  // Plan limits are checked before the row exists. Reporting them afterwards
+  // on a dashboard would mean a studio finds out it is over its plan from an
+  // invoice rather than from the form it is filling in.
+  const allowance = await checkCampaignAllowance(
+    session.studioId,
+    parsed.data.buildKind,
+  );
+  if (!allowance.allowed) {
+    // 402 rather than 403: this is not a permissions problem, it is a plan
+    // that does not cover what was asked for, and the fix is an upgrade.
+    return NextResponse.json(
+      { error: allowance.code, message: allowance.message },
+      { status: 402 },
     );
   }
 

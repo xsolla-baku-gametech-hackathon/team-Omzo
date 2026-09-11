@@ -1,6 +1,8 @@
 import type { PlanId, Usage } from "@/domain/billing/plans";
 import { PLANS, resolvePlan } from "@/domain/billing/plans";
+import { deliveryModeOf } from "@/domain/campaigns/delivery";
 import { db } from "@/server/db";
+import type { BuildKind } from "@prisma/client";
 
 /**
  * A studio's real usage for the current billing period.
@@ -191,4 +193,54 @@ export async function getBillingSnapshot(studioId: string, now?: Date) {
     getStudioPlanId(studioId),
   ]);
   return { usage, plan: resolvePlan(planId) };
+}
+
+/**
+ * Whether this studio's plan allows another campaign of this kind.
+ *
+ * A limit nobody enforces is decoration. These two are the ones that decide
+ * what a studio pays for, so they are checked before the row is written
+ * rather than reported after the fact on a dashboard.
+ *
+ * Deliberately not a hard stop on anything already running. It refuses the
+ * *next* campaign, never an in-flight playtest: a studio discovering mid-test
+ * that its testers can no longer file reports is a worse outcome than a late
+ * upgrade.
+ */
+export type CampaignAllowance =
+  | { readonly allowed: true }
+  | {
+      readonly allowed: false;
+      readonly code: "hosted_delivery_not_in_plan" | "campaign_limit_reached";
+      readonly message: string;
+    };
+
+export async function checkCampaignAllowance(
+  studioId: string,
+  buildKind: BuildKind,
+  now?: Date,
+): Promise<CampaignAllowance> {
+  const { usage, plan } = await getBillingSnapshot(studioId, now);
+
+  if (deliveryModeOf(buildKind) === "HOSTED" && !plan.limits.hostedDelivery) {
+    return {
+      allowed: false,
+      code: "hosted_delivery_not_in_plan",
+      message:
+        "Hosting a build with us — and the frame watermarking that comes with it — is on the Studio plan. Link-only campaigns stay free.",
+    };
+  }
+
+  const limit = plan.limits.activeCampaigns;
+  if (limit !== null && usage.activeCampaigns >= limit) {
+    return {
+      allowed: false,
+      code: "campaign_limit_reached",
+      message: `The ${plan.name} plan covers ${limit} active ${
+        limit === 1 ? "campaign" : "campaigns"
+      }. Close one, or move up a plan to run more at once.`,
+    };
+  }
+
+  return { allowed: true };
 }
