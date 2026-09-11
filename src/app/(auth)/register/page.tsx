@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import {
   maxBirthDateForAdult,
   validateAdultAge,
+  validateContactHandle,
   validateNameParts,
 } from "@/domain/access/identityRules";
 import { validatePasswordStrength } from "@/domain/access/passwordRules";
@@ -19,6 +20,8 @@ type FieldErrors = {
   email?: string;
   password?: string;
   birthDate?: string;
+  contactHandle?: string;
+  idPhoto?: string;
 };
 
 export default function RegisterPage() {
@@ -29,6 +32,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [studioName, setStudioName] = useState("");
+  const [contactHandle, setContactHandle] = useState("");
+  const [idPhoto, setIdPhoto] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
@@ -81,6 +86,16 @@ export default function RegisterPage() {
         ageCheck.reason ?? "You must be at least 18 years old.";
     }
 
+    if (role === "TESTER") {
+      const handleCheck = validateContactHandle(contactHandle);
+      if (!handleCheck.valid) {
+        next.contactHandle = handleCheck.reason;
+      }
+      if (!idPhoto) {
+        next.idPhoto = "Attach a photo of your ID.";
+      }
+    }
+
     return next;
   }
 
@@ -93,6 +108,8 @@ export default function RegisterPage() {
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       const first =
+        nextErrors.idPhoto ??
+        nextErrors.contactHandle ??
         nextErrors.birthDate ??
         nextErrors.lastName ??
         nextErrors.firstName ??
@@ -108,17 +125,22 @@ export default function RegisterPage() {
     const displayName = `${firstName.trim()} ${lastName.trim()}`;
 
     try {
+      const form = new FormData();
+      form.set("email", email.trim());
+      form.set("password", password);
+      form.set("displayName", displayName);
+      form.set("role", role);
+      form.set("birthDate", birthDate);
+      if (role === "STUDIO") {
+        form.set("studioName", studioName.trim());
+      } else {
+        form.set("contactHandle", contactHandle.trim());
+        if (idPhoto) form.set("idPhoto", idPhoto);
+      }
+
       const res = await fetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-          displayName,
-          role,
-          birthDate,
-          studioName: role === "STUDIO" ? studioName.trim() : undefined,
-        }),
+        body: form,
       });
 
       const data = await res.json();
@@ -443,6 +465,94 @@ export default function RegisterPage() {
                   {fieldErrors.birthDate}
                 </p>
               )}
+            </div>
+
+            <div
+              className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                role === "TESTER"
+                  ? "grid-rows-[1fr] opacity-100"
+                  : "grid-rows-[0fr] opacity-0"
+              }`}
+            >
+              <div className="overflow-hidden">
+                <div className="mb-1 space-y-4 rounded-2xl border border-[var(--line-subtle)] bg-[var(--surface-page)]/60 p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[12px] font-semibold tracking-wide text-[var(--ink-secondary)]">
+                      Contact &amp; verification
+                    </span>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="contactHandle"
+                      className="mb-1.5 block text-[12px] font-medium text-[var(--ink-secondary)]"
+                    >
+                      Discord or Telegram handle
+                    </label>
+                    <input
+                      id="contactHandle"
+                      type="text"
+                      value={contactHandle}
+                      onChange={(e) => {
+                        setContactHandle(e.target.value);
+                        if (touched)
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            contactHandle: undefined,
+                          }));
+                      }}
+                      className={inputClass(Boolean(fieldErrors.contactHandle))}
+                      placeholder="@alex_chen"
+                      required={role === "TESTER"}
+                    />
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--ink-secondary)]">
+                      How a studio reaches you about a reward or a report.
+                    </p>
+                    {fieldErrors.contactHandle && (
+                      <p className="mt-1.5 text-[12px] text-[var(--sev-critical)]">
+                        {fieldErrors.contactHandle}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="idPhoto"
+                      className="mb-1.5 block text-[12px] font-medium text-[var(--ink-secondary)]"
+                    >
+                      Photo of ID
+                    </label>
+                    <input
+                      id="idPhoto"
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={(e) => {
+                        setIdPhoto(e.target.files?.[0] ?? null);
+                        if (touched)
+                          setFieldErrors((prev) => ({
+                            ...prev,
+                            idPhoto: undefined,
+                          }));
+                      }}
+                      className={`w-full rounded-xl border bg-white/[0.03] px-3.5 py-2.5 text-[13px] text-[var(--ink-secondary)] outline-none transition-colors file:mr-3 file:rounded-full file:border-0 file:bg-[var(--accent-wash)] file:px-3 file:py-1.5 file:text-[12px] file:font-semibold file:text-[var(--accent-text)] ${
+                        fieldErrors.idPhoto
+                          ? "border-[var(--sev-critical)]/70 bg-[var(--sev-critical-wash)]"
+                          : "border-[var(--line-medium)]"
+                      }`}
+                      required={role === "TESTER"}
+                    />
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--ink-secondary)]">
+                      Used once to verify age and identity for closed
+                      playtests. PNG or JPEG, up to 8 MB.
+                    </p>
+                    {fieldErrors.idPhoto && (
+                      <p className="mt-1.5 text-[12px] text-[var(--sev-critical)]">
+                        {fieldErrors.idPhoto}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
             <button
