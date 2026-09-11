@@ -18,7 +18,16 @@ pnpm install && pnpm db:up && pnpm db:migrate dev
 pnpm dev                                      # http://localhost:3000
 ```
 
+`SESSION_SECRET`, `ACCESS_SECRET` and `APP_SALT` are validated wherever they
+are used. Blank, whitespace, or shorter than 32 characters is refused rather
+than substituted, and anything that is not explicitly `NODE_ENV=development`
+or `test` is treated as production — so a deploy that forgets one fails to
+start instead of signing with a key that is public in this repository. Left
+blank locally, the dev server falls back to a clearly-marked development key
+and warns once. Generate real ones with `openssl rand -base64 32`.
+
 To seed 328 real fixture reports through the real ingest endpoint:
+
 ```bash
 pnpm seed
 ```
@@ -82,16 +91,21 @@ Triage collapses incoming bug reports using four distinct signals:
 4. **Environment Overlap** (weight: 0.10) — GPU renderer, OS, and browser family tally overlap.
 
 ### Thresholds & Fallback
+
 - Combined score **≥ 0.40**: automatically attach report to existing issue cluster.
-- Combined score **0.25 – 0.40**: flagged as a *possible duplicate* for studio confirmation.
+- Combined score **0.25 – 0.40**: flagged as a _possible duplicate_ for studio confirmation.
 - Combined score **< 0.25**: promoted as a new unique issue cluster.
-- **Rule of Thumb**: *When in doubt, do not merge.* A duplicate issue is a minor inconvenience; a false merge hides a distinct bug.
+- **Rule of Thumb**: _When in doubt, do not merge._ A duplicate issue is a minor inconvenience; a false merge hides a distinct bug.
 
 ### In-Memory Computation
+
 IDF tables and cluster centroids are rebuilt entirely in memory on every ingest from cached `Report.tokens` arrays. Nothing about the vector space or centroid positions is persisted to the database. This is a deliberate simplification rather than a shortcut: it keeps the domain pure, guarantees 100% deterministic reproducibility, avoids stale embedding migrations, and requires zero external vector search infrastructure.
 
 ## Security Layers
 
+- **Authenticated Ingest**: `POST /api/ingest` derives the reporter from a signed build access token (bearer) or the first-party session cookie. The request body carries no reporter identity at all — a client-supplied one is an impersonation primitive, and the reporter drives both noise penalties and reward payouts. Rate limited per principal _and_ per address.
+- **Fail-Closed Secrets**: No secret has a fallback value. A missing or weak key stops the process rather than silently downgrading to a committed default.
+- **Layered Login Throttling**: Per-address _and_ per-account token buckets, so a pool of addresses cannot be used to grind a single account. The account bucket is keyed on a hash of the normalised email, never the email itself.
 - **Signed Build Access**: HMAC-SHA256 signed access tokens with a 15-minute TTL, cryptographically bound to the tester's User-Agent SHA-256 hash. Copying access links to another device or browser is immediately rejected.
 - **NDA Fingerprinting**: Server-side age gate (`birthDate` verification for ≥ 18), storing cryptographic hashes of the signed legal text so neither party can alter terms post-facto.
 - **Forensic Watermarking**: Embeds a 16-bit identity (giving a ceiling of **65,535 distinct grants**) into frame pixel luminance (±2 delta). Highly resilient to 2× and 3× downscaling.
@@ -105,12 +119,57 @@ IDF tables and cluster centroids are rebuilt entirely in memory on every ingest 
 - **Data Minimization**: `birthDate` is checked in memory during NDA verification and never surfaced on public dashboards.
 - **Virtual Claim Tokens**: Bounty rewards ("coins") are fictional claim tokens redeemable for in-game studio perks (alpha keys, credits mentions, cosmetics). They have no monetary exchange mechanism.
 
+## API Reference
+
+Every route answers `404` rather than `403` where distinguishing the two would
+confirm that an id exists.
+
+| Method                 | Path                         | Auth                       | Purpose                                                                                                     |
+| ---------------------- | ---------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `POST`                 | `/api/auth/register`         | —                          | Create a studio or tester account. Password entropy enforced.                                               |
+| `POST`                 | `/api/auth/login`            | —                          | Exchange credentials for an httpOnly session cookie. Throttled per address and per account.                 |
+| `POST`                 | `/api/auth/logout`           | —                          | Clear the session cookie.                                                                                   |
+| `GET`                  | `/api/auth/me`               | session                    | Current session identity.                                                                                   |
+| `GET`                  | `/api/campaigns`             | studio                     | Campaigns owned by the caller's studio.                                                                     |
+| `POST`                 | `/api/campaigns`             | studio                     | Create a campaign.                                                                                          |
+| `GET` `PATCH` `DELETE` | `/api/campaigns/{id}`        | studio (owner)             | Read, update, revoke a campaign.                                                                            |
+| `GET`                  | `/api/campaigns/{id}/board`  | studio (owner)             | Issues, raw report stream, and counts for the board.                                                        |
+| `GET`                  | `/api/campaigns/{id}/events` | studio (owner)             | SSE stream of `report_ingested`, `issue_created`, `issue_updated`, `issue_verified`.                        |
+| `GET` `POST`           | `/api/campaigns/{id}/nda`    | session                    | Read the NDA text; sign it (age gate, legal-name check).                                                    |
+| `POST`                 | `/api/campaigns/{id}/access` | session                    | Issue a build access grant. Max 5 per rolling hour.                                                         |
+| `GET`                  | `/api/access/{token}`        | grant token                | Redeem a build access grant. UA-bound, 15-minute TTL, single-use for downloads.                             |
+| `POST`                 | `/api/ingest`                | grant token **or** session | File a report. Reporter is taken from the credential.                                                       |
+| `POST`                 | `/api/issues/{id}/verify`    | studio (owner)             | Verify an issue and release rewards.                                                                        |
+| `POST`                 | `/api/reports/{id}/confirm`  | studio (owner)             | A held duplicate is the same bug.                                                                           |
+| `POST`                 | `/api/reports/{id}/split`    | studio (owner)             | A held duplicate is its own issue.                                                                          |
+| `POST`                 | `/api/forensics/identify`    | studio                     | Recover a watermark from a lossless PNG. Returns `other_studio` with no PII if the grant belongs elsewhere. |
+
+### Filing a report
+
+```bash
+curl -X POST http://localhost:3000/api/ingest \
+  -H "content-type: application/json" \
+  -H "authorization: Bearer $GRANT_TOKEN" \
+  -d '{
+    "campaignId": "seed-campaign",
+    "body": "The lift jams halfway up and the game stops responding",
+    "gameState": { "scene": "atrium", "x": 128, "y": 0, "z": 96, "playtimeSec": 74 },
+    "systemInfo": { "os": "Windows", "browser": "Chrome", "gpuRenderer": "AMD", "screen": "1920x1080" },
+    "consoleTail": [],
+    "clientReportId": "optional-idempotency-key"
+  }'
+```
+
+`201` for a new issue, `200` when the report was deduplicated into an existing
+one, `401` without a usable credential, `422` on a shape mismatch, `429` when
+the caller's bucket is empty (honour `Retry-After`).
+
 ## Test Coverage Summary
 
 Repro maintains strict offline test coverage across unit, domain, and UI components:
 
 ```bash
-# Run domain and UI test suites (197 passing tests)
+# Run domain and UI test suites (269 passing tests)
 pnpm test
 
 # Run database integration tests (concurrency & idempotency against Postgres)
@@ -120,30 +179,31 @@ pnpm test:integration
 pnpm typecheck && pnpm lint && pnpm test
 ```
 
-| Project | Environment | Scope |
-|---|---|---|
-| `domain` | Node.js | Pure clustering, watermark encode/decode, token HMAC, reward math |
-| `ui` | jsdom | React component behavior, IssueRow styling, renderers |
+| Project       | Environment        | Scope                                                             |
+| ------------- | ------------------ | ----------------------------------------------------------------- |
+| `domain`      | Node.js            | Pure clustering, watermark encode/decode, token HMAC, reward math |
+| `ui`          | jsdom              | React component behavior, IssueRow styling, renderers             |
 | `integration` | Node.js + Postgres | 50-parallel verify idempotency, sequence allocation, transactions |
 
 ## Development Commands
 
-| Command | Action |
-|---|---|
-| `pnpm dev` | Start Next.js local development server |
-| `pnpm build` | Production build |
-| `pnpm test` | Run Vitest domain and UI test suites |
-| `pnpm test:integration` | Run Postgres integration tests |
-| `pnpm typecheck` | Run `tsc --noEmit` under strict TypeScript |
-| `pnpm lint` | Run ESLint across all source files |
-| `pnpm format` | Run Prettier code formatting |
-| `pnpm db:migrate` | Execute Prisma migrations against local Docker Postgres |
-| `pnpm db:studio` | Launch Prisma Studio database interface |
-| `pnpm seed` | Seed 328 reports via the HTTP ingest API |
+| Command                 | Action                                                  |
+| ----------------------- | ------------------------------------------------------- |
+| `pnpm dev`              | Start Next.js local development server                  |
+| `pnpm build`            | Production build                                        |
+| `pnpm test`             | Run Vitest domain and UI test suites                    |
+| `pnpm test:integration` | Run Postgres integration tests                          |
+| `pnpm typecheck`        | Run `tsc --noEmit` under strict TypeScript              |
+| `pnpm lint`             | Run ESLint across all source files                      |
+| `pnpm format`           | Run Prettier code formatting                            |
+| `pnpm db:migrate`       | Execute Prisma migrations against local Docker Postgres |
+| `pnpm db:studio`        | Launch Prisma Studio database interface                 |
+| `pnpm seed`             | Seed 328 reports via the HTTP ingest API                |
 
 ## Team
 
 **Team Omzo** — Xsolla Baku GameTech Hackathon
+
 - **Architecture & Domain Engine**: Pure triage clustering, TF-IDF lexical matching, signature deduplication
 - **Security & Forensics**: 16-bit spatial watermark encode/decode, UA token binding, NDA integrity
 - **Backend & Realtime**: Next.js 15 App Router, Prisma ORM, SSE live events with polling fallback
