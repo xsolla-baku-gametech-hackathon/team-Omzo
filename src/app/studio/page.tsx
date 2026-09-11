@@ -34,6 +34,12 @@ export default async function StudioDashboardPage() {
               {session.displayName}
             </span>
             <Link
+              href="/studio/billing"
+              className="text-[length:var(--type-meta-size)] text-[var(--ink-secondary)] transition-colors hover:text-[var(--ink-primary)]"
+            >
+              Billing
+            </Link>
+            <Link
               href="/studio/new"
               className="py-1.5 px-3 bg-[var(--accent)] text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)] text-xs font-medium rounded-[var(--radius-sm)] transition-opacity"
             >
