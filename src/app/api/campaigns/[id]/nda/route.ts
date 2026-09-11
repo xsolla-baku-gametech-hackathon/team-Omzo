@@ -2,22 +2,39 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  parseBirthDateInput,
+  validateAdultAge,
+  validateLegalName,
+} from "@/domain/access/identityRules";
+import {
   CampaignNotOpenForSigningError,
   InvalidTypedNameError,
   MissingBirthDateError,
   UnderageError,
   getNdaSignature,
-  isValidLegalName,
   signNda,
 } from "@/server/services/ndaService";
 import { getSession } from "@/server/session";
 import { db } from "@/server/db";
 
 const signNdaSchema = z.object({
-  typedName: z.string().trim().refine((name) => isValidLegalName(name).valid, {
-    message: "Tam ad və soyad daxil edilməlidir (məs: Əli Əliyev və ya John Doe).",
+  typedName: z
+    .string()
+    .trim()
+    .min(3)
+    .max(100)
+    .refine((name) => validateLegalName(name).valid, {
+      message: "Enter both your first and last name (e.g. Alex Chen).",
+    }),
+  birthDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date of birth must be YYYY-MM-DD."),
+  attestedHuman: z.boolean().refine((value) => value === true, {
+    message: "Human attestation is required.",
   }),
-  birthDate: z.string().optional(),
+  agreedToTerms: z.boolean().refine((value) => value === true, {
+    message: "You must accept the confidentiality terms.",
+  }),
 });
 
 export async function GET(
@@ -71,8 +88,35 @@ export async function POST(
     return NextResponse.json(
       {
         error: "validation_error",
-        message: firstIssue || "A full typed name (first and last name) is required to sign.",
+        message:
+          firstIssue ||
+          "A full typed name, adult date of birth, and attestations are required.",
         issues: parsed.error.issues,
+      },
+      { status: 422 },
+    );
+  }
+
+  const birthDate = parseBirthDateInput(parsed.data.birthDate);
+  const ageCheck = validateAdultAge(birthDate);
+  if (!ageCheck.valid || birthDate == null) {
+    return NextResponse.json(
+      {
+        error: "underage",
+        message:
+          ageCheck.reason ??
+          "You must be at least 18 years old to sign an NDA.",
+      },
+      { status: 403 },
+    );
+  }
+
+  const nameCheck = validateLegalName(parsed.data.typedName);
+  if (!nameCheck.valid) {
+    return NextResponse.json(
+      {
+        error: "invalid_name",
+        message: nameCheck.reason ?? "Invalid legal name.",
       },
       { status: 422 },
     );
@@ -85,15 +129,10 @@ export async function POST(
     "127.0.0.1";
 
   try {
-    if (parsed.data.birthDate) {
-      const parsedDate = new Date(parsed.data.birthDate);
-      if (!isNaN(parsedDate.getTime())) {
-        await db.user.update({
-          where: { id: session.sub },
-          data: { birthDate: parsedDate },
-        });
-      }
-    }
+    await db.user.update({
+      where: { id: session.sub },
+      data: { birthDate },
+    });
 
     const signature = await signNda({
       userId: session.sub,
