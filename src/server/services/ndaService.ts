@@ -1,8 +1,14 @@
 import { createHash } from "node:crypto";
 
+import {
+  calculateAge,
+  validateLegalName,
+} from "@/domain/access/identityRules";
 import { requireSecret } from "@/server/config/secrets";
 import { db } from "@/server/db";
 import type { NdaSignature } from "@prisma/client";
+
+export { calculateAge } from "@/domain/access/identityRules";
 
 /**
  * NDA signing service with age gate and GDPR IP hashing (SPEC.md §4, §6.3).
@@ -66,38 +72,12 @@ export class InvalidTypedNameError extends Error {
   }
 }
 
-/**
- * Validates that a string contains a legitimate legal first and last name.
- * Requires at least 2 words, each at least 2 chars, letters/hyphens/apostrophes only.
- */
+/** @deprecated Prefer validateLegalName from domain/access/identityRules. */
 export function isValidLegalName(name: string): {
   valid: boolean;
   reason?: string;
 } {
-  const trimmed = name.trim();
-  const parts = trimmed.split(/\s+/);
-  if (parts.length < 2) {
-    return {
-      valid: false,
-      reason:
-        "Həm ad, həm də soyad daxil edilməlidir (məsələn: Əli Əliyev və ya John Doe).",
-    };
-  }
-  if (parts.some((p) => p.length < 2)) {
-    return {
-      valid: false,
-      reason: "Ad və soyadın hər biri ən azı 2 hərfdən ibarət olmalıdır.",
-    };
-  }
-  // Unicode letters, hyphens, apostrophes, spaces, periods. Reject numbers and symbols.
-  const validCharsRegex = /^[\p{L}][\p{L}'-.]*(?:\s+[\p{L}][\p{L}'-.]*)+$/u;
-  if (!validCharsRegex.test(trimmed)) {
-    return {
-      valid: false,
-      reason: "Ad və soyadda rəqəm və ya xüsusi simvollar ola bilməz.",
-    };
-  }
-  return { valid: true };
+  return validateLegalName(name);
 }
 
 export function hashIp(ip: string): string {
@@ -110,24 +90,12 @@ export function hashNdaBody(ndaBodyMd: string): string {
   return createHash("sha256").update(ndaBodyMd).digest("hex");
 }
 
-export function calculateAge(
-  birthDate: Date,
-  atDate: Date = new Date(),
-): number {
-  let age = atDate.getFullYear() - birthDate.getFullYear();
-  const m = atDate.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && atDate.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-}
-
 /**
  * Validates age and records an NDA signature for a campaign.
  */
 export async function signNda(input: SignNdaInput): Promise<NdaSignature> {
   const typedName = input.typedName.trim();
-  const nameValidation = isValidLegalName(typedName);
+  const nameValidation = validateLegalName(typedName);
   if (!nameValidation.valid) {
     throw new InvalidTypedNameError(nameValidation.reason);
   }
