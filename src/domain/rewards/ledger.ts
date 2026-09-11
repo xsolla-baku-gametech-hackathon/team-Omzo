@@ -8,7 +8,11 @@
  */
 
 export type LedgerReason =
-  "ISSUE_VERIFIED" | "FIRST_REPORTER_BONUS" | "MANUAL_ADJUSTMENT";
+  | "ISSUE_VERIFIED"
+  | "FIRST_REPORTER_BONUS"
+  | "MANUAL_ADJUSTMENT"
+  | "REWARD_CLAIMED"
+  | "CLAIM_REFUNDED";
 
 export interface LedgerEntry {
   readonly userId: string;
@@ -34,7 +38,17 @@ export function verificationKey(issueId: string): string {
   return `verify:${issueId}`;
 }
 
-/** Reasons that draw down the campaign's pool. Adjustments do not. */
+/**
+ * Reasons that draw down the campaign's pool. Adjustments do not, and neither
+ * does spending.
+ *
+ * This set is the reason a claim is safe to put in the same ledger. A claim is
+ * a negative entry, so counting it here would *reduce* what the campaign has
+ * spent — a tester cashing in 200 coins would hand the studio 200 coins of
+ * headroom back, and a campaign that promised a 5,000-coin pool could pay out
+ * well past it. The balance sums every row; the pool sums only what the studio
+ * committed.
+ */
 const POOL_REASONS: ReadonlySet<LedgerReason> = new Set([
   "ISSUE_VERIFIED",
   "FIRST_REPORTER_BONUS",
