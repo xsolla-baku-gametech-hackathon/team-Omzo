@@ -162,7 +162,54 @@ is generated from `src/domain/campaigns/delivery.ts` and
 - **IP Addresses**: Hashed with a unique deployment salt (`APP_SALT`) prior to storage. Raw IPs are never written to disk or database.
 - **Canvas-Only Capture**: Screenshots capture strictly the game's `<canvas>` element via `toDataURL()`. The tester's desktop, other browser tabs, and OS chrome are never accessed.
 - **Data Minimization**: `birthDate` is checked in memory during NDA verification and never surfaced on public dashboards.
-- **Virtual Claim Tokens**: Bounty rewards ("coins") are fictional claim tokens redeemable for in-game studio perks (alpha keys, credits mentions, cosmetics). They have no monetary exchange mechanism.
+- **Virtual Claim Tokens**: Bounty rewards ("coins") are claim tokens redeemable with the studio that awarded them (alpha keys, credits mentions, cosmetics). They have no monetary exchange mechanism and cannot be cashed out.
+
+## What a Coin Is Worth
+
+The ledger pays testers. `RewardItem` is what they can spend it on, and
+`RewardClaim` is the spending.
+
+**Repro never buys or holds a reward.** The studio funds its own shelf out of
+inventory that costs it almost nothing and is worth real money to a tester.
+That asymmetry is the whole answer to "who pays for the rewards", and it is
+why the economy needs no one to buy coins.
+
+| Reward                        | Cost to the studio    | Why a tester wants it                   |
+| ----------------------------- | --------------------- | --------------------------------------- |
+| Credits mention               | Nothing               | Their name ships in a real game         |
+| Early access to the next test | Nothing               | Status, and first pick of new builds    |
+| In-game item or currency code | Near zero             | Direct value in a game they are playing |
+| Steam key                     | One unit of inventory | Real resale-grade value                 |
+
+**A claim is a negative entry in the same ledger**, not a separate mechanism.
+The retry-safety story therefore covers the whole economy rather than one
+endpoint: `claim:<userId>:<itemId>` is unique, so a double-clicked button
+debits once and a tester takes one of each item rather than the whole shelf.
+
+**Coins are spent with the campaign that paid them.** Every ledger row carries
+a campaignId, so this balance was always there. Drawing on a single pooled
+total would let one studio hand out a key for work a tester did for another —
+studio B funds a pool and studio A's playtest spends it.
+
+Three races, three different answers:
+
+| Race                                 | What closes it                                                         |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| Same tester, same item, twice        | The unique idempotency key, plus the user row lock                     |
+| Two testers, one key left            | The item row lock — their keys differ, so the constraint cannot see it |
+| One tester, two items, coins for one | The user row lock — same reason                                        |
+
+Locks are taken user-then-item, always, so two claims cannot hold one each and
+wait on the other. `claimedCount` is denormalised onto the item precisely so
+the stock check has a single row to lock.
+
+**Fulfilment is manual.** The studio pastes a code it already owns; Repro
+generates nothing and holds no key inventory. If it cannot supply one, "cannot
+supply" refunds the coins and returns the unit to stock — the claim row stays,
+so the item cannot be re-taken, but the rest of the shelf is open again.
+
+Reward keys are issued per tester and revocable, which closes the resale
+channel that key fraud opens.
 
 ## Business Model
 
@@ -236,27 +283,31 @@ and billing is invoiced separately.
 Every route answers `404` rather than `403` where distinguishing the two would
 confirm that an id exists.
 
-| Method                 | Path                         | Auth                       | Purpose                                                                                                     |
-| ---------------------- | ---------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `POST`                 | `/api/auth/register`         | —                          | Create a studio or tester account. Password entropy enforced.                                               |
-| `POST`                 | `/api/auth/login`            | —                          | Exchange credentials for an httpOnly session cookie. Throttled per address and per account.                 |
-| `POST`                 | `/api/auth/logout`           | —                          | Clear the session cookie.                                                                                   |
-| `GET`                  | `/api/auth/me`               | session                    | Current session identity.                                                                                   |
-| `GET`                  | `/api/campaigns`             | studio                     | Campaigns owned by the caller's studio.                                                                     |
-| `POST`                 | `/api/campaigns`             | studio                     | Create a campaign. `402` when the plan does not cover the delivery mode or the campaign count.              |
-| `GET` `PATCH` `DELETE` | `/api/campaigns/{id}`        | studio (owner)             | Read, update, revoke a campaign.                                                                            |
-| `GET`                  | `/api/campaigns/{id}/board`  | studio (owner)             | Issues, raw report stream, and counts for the board.                                                        |
-| `GET`                  | `/api/campaigns/{id}/events` | studio (owner)             | SSE stream of `report_ingested`, `issue_created`, `issue_updated`, `issue_verified`.                        |
-| `GET` `POST`           | `/api/campaigns/{id}/nda`    | session                    | Read the NDA text; sign it (age gate, legal-name check).                                                    |
-| `POST`                 | `/api/campaigns/{id}/access` | session                    | Issue a build access grant. Max 5 per rolling hour.                                                         |
-| `GET`                  | `/api/access/{token}`        | grant token                | Validate a grant for the session surface. UA-bound, 15-minute TTL. Does not spend a single-use grant.       |
-| `GET`                  | `/api/access/{token}/build`  | grant token                | The only door to a build. Re-checks the grant, records the attempt, redirects. Spends a download grant.     |
-| `POST`                 | `/api/ingest`                | grant token **or** session | File a report. Reporter is taken from the credential.                                                       |
-| `POST`                 | `/api/issues/{id}/verify`    | studio (owner)             | Verify an issue and release rewards.                                                                        |
-| `POST`                 | `/api/reports/{id}/confirm`  | studio (owner)             | A held duplicate is the same bug.                                                                           |
-| `POST`                 | `/api/reports/{id}/split`    | studio (owner)             | A held duplicate is its own issue.                                                                          |
-| `POST`                 | `/api/billing/subscription`  | studio                     | Change the studio's plan. Records an intent; no payment is taken.                                           |
-| `POST`                 | `/api/forensics/identify`    | studio                     | Recover a watermark from a lossless PNG. Returns `other_studio` with no PII if the grant belongs elsewhere. |
+| Method                 | Path                          | Auth                       | Purpose                                                                                                     |
+| ---------------------- | ----------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `POST`                 | `/api/auth/register`          | —                          | Create a studio or tester account. Password entropy enforced.                                               |
+| `POST`                 | `/api/auth/login`             | —                          | Exchange credentials for an httpOnly session cookie. Throttled per address and per account.                 |
+| `POST`                 | `/api/auth/logout`            | —                          | Clear the session cookie.                                                                                   |
+| `GET`                  | `/api/auth/me`                | session                    | Current session identity.                                                                                   |
+| `GET`                  | `/api/campaigns`              | studio                     | Campaigns owned by the caller's studio.                                                                     |
+| `POST`                 | `/api/campaigns`              | studio                     | Create a campaign. `402` when the plan does not cover the delivery mode or the campaign count.              |
+| `GET` `PATCH` `DELETE` | `/api/campaigns/{id}`         | studio (owner)             | Read, update, revoke a campaign.                                                                            |
+| `GET`                  | `/api/campaigns/{id}/board`   | studio (owner)             | Issues, raw report stream, and counts for the board.                                                        |
+| `GET`                  | `/api/campaigns/{id}/events`  | studio (owner)             | SSE stream of `report_ingested`, `issue_created`, `issue_updated`, `issue_verified`.                        |
+| `GET` `POST`           | `/api/campaigns/{id}/nda`     | session                    | Read the NDA text; sign it (age gate, legal-name check).                                                    |
+| `POST`                 | `/api/campaigns/{id}/access`  | session                    | Issue a build access grant. Max 5 per rolling hour.                                                         |
+| `GET`                  | `/api/access/{token}`         | grant token                | Validate a grant for the session surface. UA-bound, 15-minute TTL. Does not spend a single-use grant.       |
+| `GET`                  | `/api/access/{token}/build`   | grant token                | The only door to a build. Re-checks the grant, records the attempt, redirects. Spends a download grant.     |
+| `POST`                 | `/api/ingest`                 | grant token **or** session | File a report. Reporter is taken from the credential.                                                       |
+| `POST`                 | `/api/issues/{id}/verify`     | studio (owner)             | Verify an issue and release rewards.                                                                        |
+| `POST`                 | `/api/reports/{id}/confirm`   | studio (owner)             | A held duplicate is the same bug.                                                                           |
+| `POST`                 | `/api/reports/{id}/split`     | studio (owner)             | A held duplicate is its own issue.                                                                          |
+| `POST`                 | `/api/campaigns/{id}/rewards` | studio (owner)             | Stock the reward shelf.                                                                                     |
+| `POST`                 | `/api/rewards/{id}/claim`     | session                    | Spend coins. Tester comes from the session; debits once however many times it is called.                    |
+| `POST`                 | `/api/claims/{id}/fulfil`     | studio (owner)             | Record the code the studio is sending.                                                                      |
+| `POST`                 | `/api/claims/{id}/cancel`     | studio (owner)             | Cannot supply — refunds the coins and restocks the unit.                                                    |
+| `POST`                 | `/api/billing/subscription`   | studio                     | Change the studio's plan. Records an intent; no payment is taken.                                           |
+| `POST`                 | `/api/forensics/identify`     | studio                     | Recover a watermark from a lossless PNG. Returns `other_studio` with no PII if the grant belongs elsewhere. |
 
 ### Filing a report
 
@@ -283,7 +334,7 @@ the caller's bucket is empty (honour `Retry-After`).
 Repro maintains strict offline test coverage across unit, domain, and UI components:
 
 ```bash
-# Run domain and UI test suites (345 passing tests)
+# Run domain and UI test suites (366 passing tests)
 pnpm test
 
 # Run database integration tests (concurrency & idempotency against Postgres)

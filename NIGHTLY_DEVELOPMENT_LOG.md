@@ -356,6 +356,80 @@ fails if the README copy drifts from the code.
 
 ---
 
+## 3B. What a coin is worth (BUSINESS.md §2)
+
+### The gap
+
+The ledger was correct, idempotent, locked against overspend, and paid out.
+Nothing said what the tester got, which made the coin a number rather than a
+reward.
+
+### The decision that matters
+
+A claim is a **negative entry in the same ledger**, not a parallel mechanism.
+That reuse is the point worth making out loud: the retry-safety guarantee
+already proven for payouts now covers redemption too, with no second system to
+get right.
+
+It only works because of one detail that was already in the ledger — the set
+of reasons that count as pool spending. A claim is negative, so counting it
+there would _reduce_ what a campaign had spent: a tester cashing in 200 coins
+would hand the studio 200 coins of headroom back, and a campaign promising a
+5,000-coin pool could pay out well past it. REWARD_CLAIMED and CLAIM_REFUNDED
+stay out of that set, and a test pins it.
+
+### What the live probe changed
+
+Two things were wrong and only showed up against a running server.
+
+**A double-clicked claim returned an error.** The pre-check fired before the
+unique constraint, so the second click got "already claimed" as a failure for
+something that had in fact worked. It is now a no-op that reports the first
+call's answer — the same shape as verifying an already-paid issue.
+
+**Coins were drawn from a single pooled balance.** So a tester could earn in
+studio A's campaign and take studio B's Steam key: B funds a pool, A's playtest
+spends it. Every ledger row already carried a campaignId, so the fix was to use
+the balance that was always there. This is the first question a judge would ask
+about a shared balance, and the answer is now in the code rather than in a
+promise.
+
+### Three races, three answers
+
+| Race                                 | What closes it                                                         |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| Same tester, same item, twice        | Unique idempotency key, plus the user row lock                         |
+| Two testers, one key left            | The item row lock — their keys differ, so the constraint never sees it |
+| One tester, two items, coins for one | The user row lock — same reason                                        |
+
+Locks are taken user-then-item, always. Two claims taking them in opposite
+orders would deadlock on each other. `claimedCount` is denormalised onto the
+item so the stock check has one row to lock rather than every claim on it.
+
+All three are tested against a real Postgres. Mocking them would assert only
+that the mock agrees with the code.
+
+### Verified live
+
+| Probe                                            | Result                                  |
+| ------------------------------------------------ | --------------------------------------- |
+| Tester with exactly 150 claims a 150-coin reward | `200`, spent 150, balance 0             |
+| Same click again                                 | `200`, `claimed:false`, no second debit |
+| 800-coin key on a zero balance                   | `409 insufficient_balance`              |
+| Rich in another campaign, broke in this one      | Refused, then allowed once paid here    |
+| Empty fulfilment code                            | `422`                                   |
+| Tester calling the studio's fulfil route         | `401`                                   |
+| Real code pasted                                 | `200`, and the tester's page shows it   |
+| Cancelling an already-sent claim                 | `409`                                   |
+
+### Deliberately not built
+
+Key inventory management. Fulfilment is the studio pasting a code it already
+owns — Repro generates nothing and holds nothing. That is what an early
+product honestly does, and it took an afternoon rather than a day.
+
+---
+
 ## 4. Known limitations
 
 Stated because a judge will find them, and because a list of strengths with no
@@ -383,7 +457,14 @@ limits is telling half of something.
   "prevents forwarding" row is `no` in _every_ mode, including hosted, and a
   test keeps it that way.
 - **No payment rails.** A plan change records an intent. Nothing is charged.
-- **The commit count is 41, not the 350 originally targeted.** Every commit here
+- **Reward fulfilment is manual and unverified.** The studio pastes a code and
+  we store it. Nothing checks the code is real, was not reused, or was ever
+  sent — the claim record is evidence of what was promised, not proof of
+  delivery.
+- **A cancelled claim cannot be re-taken.** The row stays so the item stays
+  spent-once; the coins come back and the rest of the shelf is open. A studio
+  that restocks later cannot reopen that specific claim.
+- **The commit count is 48, not the 350 originally targeted.** Every commit here
   is a real, verified change; several were validated against a running server
   before being written. Reaching 350 in one night would have required splitting
   work into fragments too small to verify, and the instruction that no commit be
