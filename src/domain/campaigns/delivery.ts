@@ -32,6 +32,19 @@ export const BUILD_KINDS: readonly BuildKind[] = [
   "DOWNLOAD",
 ];
 
+/**
+ * Narrows a value that crossed a wire. An unrecognised build kind must not
+ * be indexed into the capability table, because the miss would read as
+ * `undefined` and every capability would render as absent — including the
+ * ones that are actually present.
+ */
+export function isBuildKind(value: unknown): value is BuildKind {
+  return (
+    typeof value === "string" &&
+    (BUILD_KINDS as readonly string[]).includes(value)
+  );
+}
+
 export type DeliveryMode = "LINK_ONLY" | "HOSTED" | "SELF_HOSTED";
 
 /**

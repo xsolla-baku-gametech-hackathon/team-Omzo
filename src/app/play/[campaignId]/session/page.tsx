@@ -5,6 +5,13 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { WatermarkedFrame } from "@/components/WatermarkedFrame";
+import {
+  DELIVERY_MODE_CAVEAT,
+  DELIVERY_MODE_LABEL,
+  capabilitiesOf,
+  deliveryModeOf,
+  isBuildKind,
+} from "@/domain/campaigns/delivery";
 
 interface ValidationResponse {
   valid: boolean;
@@ -121,6 +128,15 @@ export default function SessionPage() {
     );
   }
 
+  // Past the error branch, so `data` is present. An unrecognised build kind
+  // is treated as the least capable mode rather than the most: claiming
+  // protection we cannot deliver is the failure that matters here.
+  const buildKind = isBuildKind(data.buildKind)
+    ? data.buildKind
+    : "EXTERNAL_LINK";
+  const mode = deliveryModeOf(buildKind);
+  const capabilities = capabilitiesOf(buildKind);
+
   return (
     <div
       onClick={() => setHeaderVisible((v) => !v)}
@@ -150,7 +166,9 @@ export default function SessionPage() {
 
         <div className="flex items-center gap-4 text-[13px]">
           <span className="text-[var(--ink-secondary)] hidden sm:inline">
-            Watermark active
+            {capabilities.watermarksFrames
+              ? "Watermark active"
+              : `${DELIVERY_MODE_LABEL[mode]} — no frame watermark`}
           </span>
           <Link
             href={`/play/${campaignId}/nda`}
@@ -167,17 +185,28 @@ export default function SessionPage() {
         className="flex-1 flex flex-col items-center justify-center p-2 sm:p-6"
       >
         <div className="max-w-4xl w-full border border-[var(--line-subtle)] bg-[var(--surface-raised)] rounded-[var(--radius-md)] overflow-hidden shadow-xs">
-          <WatermarkedFrame
-            watermarkId={data.watermarkId}
-            campaignTitle={data.campaignTitle}
-            campaignId={data.campaignId}
-          />
+          {capabilities.watermarksFrames ? (
+            <WatermarkedFrame
+              watermarkId={data.watermarkId}
+              campaignTitle={data.campaignTitle}
+              campaignId={data.campaignId}
+            />
+          ) : (
+            <div className="p-8 sm:p-12 text-center">
+              <h2 className="text-[15px] font-semibold text-[var(--ink-primary)] mb-2">
+                This build runs outside Repro
+              </h2>
+              <p className="text-[13px] text-[var(--ink-secondary)] leading-relaxed max-w-md mx-auto">
+                {DELIVERY_MODE_CAVEAT[mode]}
+              </p>
+            </div>
+          )}
 
           <div className="p-4 bg-[var(--surface-page)] border-t border-[var(--line-subtle)] flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-[var(--ink-secondary)]">
             <div>
-              Build mode:{" "}
-              <span className="font-mono text-[var(--ink-primary)]">
-                {data.buildKind}
+              Delivery:{" "}
+              <span className="text-[var(--ink-primary)]">
+                {DELIVERY_MODE_LABEL[mode]}
               </span>
             </div>
             <div>
