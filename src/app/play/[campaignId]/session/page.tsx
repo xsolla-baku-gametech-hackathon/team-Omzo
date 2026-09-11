@@ -178,12 +178,12 @@ export default function SessionPage() {
         </div>
       </header>
 
-      {/* Main Play Area */}
+      {/* Main Play Area — wide stage so export / full-screen controls never clip */}
       <main
         onClick={(e) => e.stopPropagation()}
-        className="flex-1 flex flex-col items-center justify-center p-2 sm:p-6"
+        className="flex min-h-0 flex-1 flex-col items-stretch justify-center p-0 sm:p-4"
       >
-        <div className="max-w-4xl w-full border border-[var(--line-subtle)] bg-[var(--surface-raised)] rounded-[var(--radius-md)] overflow-hidden shadow-xs">
+        <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col overflow-hidden border-0 bg-[var(--surface-raised)] sm:rounded-[20px] sm:border sm:border-[var(--line-subtle)] sm:shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
           {capabilities.watermarksFrames ? (
             <WatermarkedFrame
               watermarkId={data.watermarkId}
@@ -191,27 +191,24 @@ export default function SessionPage() {
               campaignId={data.campaignId}
             />
           ) : (
-            <div className="p-8 sm:p-12 text-center">
-              <h2 className="text-[15px] font-semibold text-[var(--ink-primary)] mb-2">
+            <div className="flex flex-1 flex-col items-center justify-center p-8 sm:p-12 text-center">
+              <h2 className="mb-2 text-[15px] font-semibold text-[var(--ink-primary)]">
                 This build runs outside Repro
               </h2>
-              <p className="text-[13px] text-[var(--ink-secondary)] leading-relaxed max-w-md mx-auto mb-6">
+              <p className="mx-auto mb-6 max-w-md text-[13px] leading-relaxed text-[var(--ink-secondary)]">
                 {DELIVERY_MODE_CAVEAT[mode]}
               </p>
-              {/* The destination is never sent to the client. This link goes
-                  through the gated redirect, which re-checks the grant and
-                  records the access on the way past. */}
               <a
                 href={`/api/access/${token}/build`}
                 rel="noopener noreferrer"
-                className="inline-block py-2.5 px-5 bg-[var(--accent)] text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)] text-[13px] font-medium rounded-[var(--radius-sm)] transition-opacity"
+                className="inline-block rounded-full bg-[var(--accent)] px-5 py-2.5 text-[13px] font-medium text-[var(--accent-on-fill)] transition-opacity hover:bg-[var(--accent-hover)]"
               >
                 Open the build
               </a>
             </div>
           )}
 
-          <div className="p-4 bg-[var(--surface-page)] border-t border-[var(--line-subtle)] flex flex-col sm:flex-row items-center justify-between gap-4 text-[13px] text-[var(--ink-secondary)]">
+          <div className="flex flex-col items-start justify-between gap-2 border-t border-[var(--line-subtle)] bg-[var(--surface-page)] px-4 py-3 text-[12px] text-[var(--ink-secondary)] sm:flex-row sm:items-center">
             <div>
               Delivery:{" "}
               <span className="text-[var(--ink-primary)]">
@@ -219,7 +216,8 @@ export default function SessionPage() {
               </span>
             </div>
             <div>
-              Token expires at {new Date(data.expiresAt).toLocaleTimeString()}
+              Access expires at{" "}
+              {new Date(data.expiresAt).toLocaleTimeString()}
             </div>
           </div>
         </div>
