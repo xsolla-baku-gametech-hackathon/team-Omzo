@@ -87,7 +87,16 @@ export async function GET(
       clientIp,
     });
 
-    const response = NextResponse.redirect(campaign.buildUrl, 302);
+    // An internal path is a build we serve ourselves and must be resolved
+    // against this request's origin — NextResponse.redirect rejects a
+    // relative URL, so passing one straight through would 500 on a campaign
+    // that is otherwise perfectly valid.
+    const destination =
+      verdict.scope === "internal"
+        ? new URL(campaign.buildUrl, request.url).toString()
+        : campaign.buildUrl;
+
+    const response = NextResponse.redirect(destination, 302);
     // The destination is behind a 15-minute grant and, for downloads, single
     // use. A cached 302 would outlive both.
     response.headers.set("Cache-Control", "no-store");
