@@ -1,7 +1,7 @@
 # Nightly Development Log
 
 Branch `nightly-mvp-build`, built on top of `backup-pre-nightly` (43094fe).
-Twenty-seven commits.
+Thirty commits.
 
 The original pre-nightly state is preserved on both the `backup-pre-nightly`
 branch and its remote copy. `backup-pre-nightly` is an ancestor of this
@@ -102,10 +102,10 @@ rather than guessed at.
 
 ### 1.4 Tests
 
-305 passing (from 197 at the start of the branch), across 30 files.
+315 passing (from 197 at the start of the branch), across 31 files.
 
 New suites: `secrets` (13), `ingestAuth` (16), `tenancyMutations` (12),
-`plans` (24), `billingPeriod` (6),
+`plans` (24), `billingPeriod` (6), `subscription` (10),
 `watermarkEcc` (5, two of them exhaustive sweeps), plus `rateLimiter`,
 `sanitize`, `passwordRules`, `auditLog`, `fuzzyMatch`, `stackTrace`,
 `apiResponse` from earlier in the night.
@@ -264,7 +264,7 @@ limits is telling half of something.
   that the route authenticates via bearer token rather than ambient cookies —
   this is the standard public-API shape — but it is a deliberate choice, not an
   oversight.
-- **The commit count is 27, not the 350 originally targeted.** Every commit here
+- **The commit count is 30, not the 350 originally targeted.** Every commit here
   is a real, verified change; several were validated against a running server
   before being written. Reaching 350 in one night would have required splitting
   work into fragments too small to verify, and the instruction that no commit be

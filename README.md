@@ -162,6 +162,14 @@ The catalogue lives in `src/domain/billing/plans.ts` as pure, tested logic.
 `/pricing` and the studio's own `/studio/billing` panel both read from it, so
 the marketing page and the invoice cannot disagree about what a plan costs.
 
+A studio's plan is persisted in `Subscription`, and every change is appended
+to `SubscriptionEvent` with the user who made it. Usage accrues across a
+period while a plan can change inside one, so the current plan alone cannot
+rebuild an invoice — the history is what answers which plan was in force.
+Self-hosted is not self-servable: it is an annual licence agreed with a
+person. **No payment is taken in-app yet**; a plan change records an intent
+and billing is invoiced separately.
+
 ## API Reference
 
 Every route answers `404` rather than `403` where distinguishing the two would
@@ -212,7 +220,7 @@ the caller's bucket is empty (honour `Retry-After`).
 Repro maintains strict offline test coverage across unit, domain, and UI components:
 
 ```bash
-# Run domain and UI test suites (305 passing tests)
+# Run domain and UI test suites (315 passing tests)
 pnpm test
 
 # Run database integration tests (concurrency & idempotency against Postgres)
