@@ -31,6 +31,11 @@ model User {
   birthDate    DateTime? // age is computed server-side at NDA signing
   createdAt    DateTime  @default(now())
 
+  // Tester contact + identity verification, collected at registration.
+  contactHandle   String? // Discord or Telegram handle, so a studio can reach the tester
+  idPhoto         Bytes? // photo of ID, for age/identity verification
+  idPhotoMimeType String? // "image/png" | "image/jpeg"
+
   studio                 Studio?
   ndaSignatures          NdaSignature[]
   reports                Report[]
