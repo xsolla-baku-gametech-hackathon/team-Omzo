@@ -117,6 +117,40 @@ enum BuildKind {
   EXTERNAL_LINK
 }
 
+/**
+ * Every attempt to reach a build, granted or refused.
+ * AccessGrant is one row per tester per campaign for life, rewritten in place
+ * on re-issuance, so it can only ever answer "when did they last ask". The
+ * question a studio has after a leak is "who opened this, and when" — which
+ * needs a row per attempt, never updated.
+ * Deliberately holds no foreign keys. An audit record that cascades away with
+ * the campaign it audits is not an audit record, and a denied attempt may
+ * name a user or campaign that does not resolve at all.
+ */
+model AccessEvent {
+  id         String        @id @default(cuid())
+  campaignId String
+  userId     String? // absent when the token did not parse
+  grantId    String?
+  outcome    AccessOutcome
+  buildKind  BuildKind // what delivery mode was in force at the time
+  uaHash     String
+  ipHash     String // sha256(ip + APP_SALT) — never the raw address
+  createdAt  DateTime      @default(now())
+
+  @@index([campaignId, createdAt])
+  @@index([userId, createdAt])
+}
+
+enum AccessOutcome {
+  GRANTED
+  DENIED_INVALID_TOKEN
+  DENIED_UA_MISMATCH
+  DENIED_EXPIRED
+  DENIED_REVOKED
+  DENIED_CONSUMED
+}
+
 enum CampaignStatus {
   DRAFT
   OPEN
