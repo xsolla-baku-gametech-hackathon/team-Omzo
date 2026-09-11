@@ -4,7 +4,13 @@ import { signGrantToken, verifyGrantToken } from "@/domain/access/token";
 import type { GrantTokenPayload } from "@/domain/access/token";
 import { requireSecret } from "@/server/config/secrets";
 import { db } from "@/server/db";
-import type { AccessGrant, Campaign, Prisma } from "@prisma/client";
+import type {
+  AccessGrant,
+  AccessOutcome,
+  BuildKind,
+  Campaign,
+  Prisma,
+} from "@prisma/client";
 
 /**
  * Access Grant service (SPEC.md §4, §6.1).
@@ -44,6 +50,18 @@ export interface IssueAccessGrantInput {
 export interface ValidateAccessGrantInput {
   readonly token: string;
   readonly userAgent: string;
+  /**
+   * Whether this validation is the single use a DOWNLOAD grant is allowed.
+   *
+   * Off by default, because checking a token in order to render a page is not
+   * using the link. Only the route that actually hands over the build passes
+   * this — otherwise loading the session surface would burn the download
+   * before the tester clicked anything.
+   *
+   * An already-consumed grant is refused either way; this gates the write,
+   * not the check.
+   */
+  readonly consume?: boolean;
 }
 
 export interface AccessValidationOutcome {
@@ -77,14 +95,53 @@ export class AccessRateLimitExceededError extends Error {
   }
 }
 
-export class InvalidAccessTokenError extends Error {
-  constructor(message: string = "Invalid or expired access token.") {
+/**
+ * What a refusal knows about itself.
+ *
+ * A denial is the most interesting thing the access log records — repeated
+ * UA mismatches against one grant is a link being passed around — but the
+ * log needs a campaign to file it under. Carrying the context on the error
+ * means the caller records it without re-verifying the token to find out who
+ * was turned away.
+ *
+ * null when the token did not parse at all, which is the one case where
+ * there is genuinely nothing to attribute.
+ */
+export interface AccessDenialContext {
+  readonly campaignId: string;
+  readonly userId: string | null;
+  readonly grantId: string | null;
+  readonly buildKind: BuildKind;
+}
+
+/**
+ * Base for every refusal, so a caller can log one without knowing which.
+ *
+ * Each subclass names the outcome it records. Deriving that from the message
+ * text at the call site would make an audit trail depend on wording that
+ * exists to be read by a tester.
+ */
+export class AccessDeniedError extends Error {
+  context: AccessDenialContext | null = null;
+  readonly outcome: AccessOutcome = "DENIED_INVALID_TOKEN";
+}
+
+export class InvalidAccessTokenError extends AccessDeniedError {
+  override readonly outcome: AccessOutcome;
+
+  constructor(
+    message: string = "Invalid or expired access token.",
+    outcome: AccessOutcome = "DENIED_INVALID_TOKEN",
+  ) {
     super(message);
     this.name = "InvalidAccessTokenError";
+    this.outcome = outcome;
   }
 }
 
-export class UaMismatchError extends Error {
+export class UaMismatchError extends AccessDeniedError {
+  override readonly outcome: AccessOutcome = "DENIED_UA_MISMATCH";
+
   constructor() {
     super(
       "This access link belongs to another tester. Request your own from the campaign page.",
@@ -93,14 +150,18 @@ export class UaMismatchError extends Error {
   }
 }
 
-export class AccessRevokedError extends Error {
+export class AccessRevokedError extends AccessDeniedError {
+  override readonly outcome: AccessOutcome = "DENIED_REVOKED";
+
   constructor() {
     super("This campaign has been closed or its access has been revoked.");
     this.name = "AccessRevokedError";
   }
 }
 
-export class AccessConsumedError extends Error {
+export class AccessConsumedError extends AccessDeniedError {
+  override readonly outcome: AccessOutcome = "DENIED_CONSUMED";
+
   constructor() {
     super(
       "This single-use download link has already been used. Please request a fresh access link from the campaign page.",
@@ -265,6 +326,15 @@ export async function issueAccessGrant(
   return { grant, token };
 }
 
+/** Attaches the context to a refusal and hands it back for throwing. */
+function denied<E extends AccessDeniedError>(
+  error: E,
+  context: AccessDenialContext | null,
+): E {
+  error.context = context;
+  return error;
+}
+
 /**
  * Validates an access token and user agent, checking campaign revocation and single-use nonces.
  */
@@ -273,8 +343,13 @@ export async function validateAccessGrant(
 ): Promise<AccessValidationOutcome> {
   const result = verifyGrantToken(input.token, accessSecret());
   if (!result.valid) {
+    // Nothing parsed, so there is nobody and no campaign to attribute the
+    // refusal to. The context stays null rather than being guessed.
     if (result.reason === "expired") {
-      throw new InvalidAccessTokenError("This access token has expired.");
+      throw new InvalidAccessTokenError(
+        "This access token has expired.",
+        "DENIED_EXPIRED",
+      );
     }
     throw new InvalidAccessTokenError("Invalid or tampered access token.");
   }
@@ -287,37 +362,67 @@ export async function validateAccessGrant(
   });
 
   if (grant === null) {
-    throw new InvalidAccessTokenError("Access grant record not found.");
+    // A validly signed token naming a grant row that is gone. Rare enough to
+    // afford one extra read so the refusal is still filed against a campaign.
+    const campaign = await db.campaign.findUnique({
+      where: { id: payload.campaignId },
+      select: { buildKind: true },
+    });
+    throw denied(
+      new InvalidAccessTokenError("Access grant record not found."),
+      campaign === null
+        ? null
+        : {
+            campaignId: payload.campaignId,
+            userId: payload.userId,
+            grantId: payload.grantId,
+            buildKind: campaign.buildKind,
+          },
+    );
   }
 
   const campaign = grant.campaign;
 
+  const context: AccessDenialContext = {
+    campaignId: campaign.id,
+    userId: grant.userId,
+    grantId: grant.id,
+    buildKind: campaign.buildKind,
+  };
+
   // Revocation check (§6.1)
   if (campaign.status === "CLOSED" || campaign.revokedAt !== null) {
-    throw new AccessRevokedError();
+    throw denied(new AccessRevokedError(), context);
   }
 
   // Expiration check
   if (grant.expiresAt.getTime() < Date.now()) {
-    throw new InvalidAccessTokenError("This access grant has expired.");
+    throw denied(
+      new InvalidAccessTokenError(
+        "This access grant has expired.",
+        "DENIED_EXPIRED",
+      ),
+      context,
+    );
   }
 
   // User-Agent bind check (§6.1)
   const currentUaHash = hashUserAgent(input.userAgent);
   if (grant.uaHash !== currentUaHash) {
-    throw new UaMismatchError();
+    throw denied(new UaMismatchError(), context);
   }
 
   // Single-use check for DOWNLOAD builds
   if (campaign.buildKind === "DOWNLOAD") {
     if (grant.consumedAt !== null) {
-      throw new AccessConsumedError();
+      throw denied(new AccessConsumedError(), context);
     }
-    // Mark consumed on first use
-    await db.accessGrant.update({
-      where: { id: grant.id },
-      data: { consumedAt: new Date() },
-    });
+    if (input.consume === true) {
+      await db.accessGrant.update({
+        where: { id: grant.id },
+        data: { consumedAt: new Date() },
+      });
+    }
   }
 
   return { grant, campaign, payload };

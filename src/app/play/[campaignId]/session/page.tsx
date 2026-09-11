@@ -19,7 +19,6 @@ interface ValidationResponse {
   campaignId: string;
   campaignTitle: string;
   buildKind: string;
-  buildUrl: string;
   watermarkId: number;
   expiresAt: string;
   error?: string;
@@ -196,9 +195,19 @@ export default function SessionPage() {
               <h2 className="text-[15px] font-semibold text-[var(--ink-primary)] mb-2">
                 This build runs outside Repro
               </h2>
-              <p className="text-[13px] text-[var(--ink-secondary)] leading-relaxed max-w-md mx-auto">
+              <p className="text-[13px] text-[var(--ink-secondary)] leading-relaxed max-w-md mx-auto mb-6">
                 {DELIVERY_MODE_CAVEAT[mode]}
               </p>
+              {/* The destination is never sent to the client. This link goes
+                  through the gated redirect, which re-checks the grant and
+                  records the access on the way past. */}
+              <a
+                href={`/api/access/${token}/build`}
+                rel="noopener noreferrer"
+                className="inline-block py-2.5 px-5 bg-[var(--accent)] text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)] text-[13px] font-medium rounded-[var(--radius-sm)] transition-opacity"
+              >
+                Open the build
+              </a>
             </div>
           )}
 
