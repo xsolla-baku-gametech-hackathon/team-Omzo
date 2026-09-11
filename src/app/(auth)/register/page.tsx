@@ -2,35 +2,124 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import {
+  maxBirthDateForAdult,
+  validateAdultAge,
+  validateNameParts,
+} from "@/domain/access/identityRules";
+import { validatePasswordStrength } from "@/domain/access/passwordRules";
+
+type Role = "TESTER" | "STUDIO";
+
+type FieldErrors = {
+  firstName?: string;
+  lastName?: string;
+  studioName?: string;
+  email?: string;
+  password?: string;
+  birthDate?: string;
+};
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [role, setRole] = useState<"TESTER" | "STUDIO">("TESTER");
+  const [role, setRole] = useState<Role>("TESTER");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [studioName, setStudioName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
+  const [touched, setTouched] = useState(false);
+
+  const maxBirthDate = useMemo(() => maxBirthDateForAdult(), []);
+  const passwordAnalysis = useMemo(
+    () => validatePasswordStrength(password),
+    [password],
+  );
+
+  const studioSlug = studioName
+    ? studioName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+    : "your-studio";
+
+  function validateForm(): FieldErrors {
+    const next: FieldErrors = {};
+    const nameCheck = validateNameParts(firstName, lastName);
+    if (!nameCheck.valid) {
+      if (!firstName.trim()) next.firstName = "First name is required.";
+      else if (firstName.trim().length < 2)
+        next.firstName = "First name must be at least 2 letters.";
+      if (!lastName.trim()) next.lastName = "Last name is required.";
+      else if (lastName.trim().length < 2)
+        next.lastName = "Last name must be at least 2 letters.";
+      if (!next.firstName && !next.lastName && nameCheck.reason) {
+        next.firstName = nameCheck.reason;
+      }
+    }
+
+    if (role === "STUDIO" && studioName.trim().length < 2) {
+      next.studioName = "Studio name must be at least 2 characters.";
+    }
+
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      next.email = "Enter a valid email address.";
+    }
+
+    if (!passwordAnalysis.isValid) {
+      next.password =
+        passwordAnalysis.errors[0] ?? "Password does not meet requirements.";
+    }
+
+    const ageCheck = validateAdultAge(birthDate);
+    if (!ageCheck.valid) {
+      next.birthDate =
+        ageCheck.reason ?? "You must be at least 18 years old.";
+    }
+
+    return next;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setTouched(true);
     setError(null);
+
+    const nextErrors = validateForm();
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      const first =
+        nextErrors.birthDate ??
+        nextErrors.lastName ??
+        nextErrors.firstName ??
+        nextErrors.password ??
+        nextErrors.email ??
+        nextErrors.studioName ??
+        "Please fix the highlighted fields.";
+      setError(first);
+      return;
+    }
+
     setLoading(true);
+    const displayName = `${firstName.trim()} ${lastName.trim()}`;
 
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          email: email.trim(),
           password,
           displayName,
           role,
-          birthDate: birthDate || undefined,
-          studioName: role === "STUDIO" ? studioName : undefined,
+          birthDate,
+          studioName: role === "STUDIO" ? studioName.trim() : undefined,
         }),
       });
 
@@ -52,216 +141,334 @@ export default function RegisterPage() {
     }
   }
 
-  const studioSlug = studioName
-    ? studioName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
-    : "your-studio";
+  const inputClass = (hasError?: boolean) =>
+    [
+      "w-full rounded-xl border bg-white/[0.03] px-3.5 py-3 text-[15px] text-[var(--ink-primary)]",
+      "placeholder:text-[var(--ink-tertiary)] outline-none transition-[border-color,box-shadow,background-color] duration-200",
+      "focus:bg-white/[0.05] focus:border-[var(--accent)] focus:shadow-[0_0_0_4px_var(--accent-wash)]",
+      hasError
+        ? "border-[var(--sev-critical)]/70 bg-[var(--sev-critical-wash)]"
+        : "border-[var(--line-medium)]",
+    ].join(" ");
 
   return (
-    <main className="min-h-screen bg-[var(--surface-page)] flex items-center justify-center p-6 text-[var(--ink-primary)] font-sans relative overflow-hidden">
-      {/* Background ambient light */}
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--surface-page)] px-5 py-12 text-[var(--ink-primary)] font-sans">
       <div
-        className="pointer-events-none fixed top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[300px] opacity-20 blur-[100px] rounded-full"
-        style={{ background: "radial-gradient(circle, var(--accent) 0%, transparent 70%)" }}
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-90"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 50% at 50% -10%, var(--bloom-ambient-tint), transparent 55%), radial-gradient(circle at 85% 80%, rgba(139,92,246,0.08), transparent 35%)",
+        }}
       />
 
-      <div className="w-full max-w-md border border-[var(--line-subtle)] bg-[var(--surface-raised)] p-8 rounded-[var(--radius-md)] shadow-xl relative z-10">
-        <div className="mb-6">
+      <div className="relative z-10 w-full max-w-[420px]">
+        <div className="mb-8 text-center">
           <Link
             href="/"
-            className="text-xs font-semibold text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors inline-flex items-center gap-1"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--ink-secondary)] transition-colors hover:text-[var(--ink-primary)]"
           >
-            ← Repro Ana Səhifə
+            <span aria-hidden className="text-base leading-none">
+              ←
+            </span>
+            Repro
           </Link>
-          <h1 className="text-2xl font-semibold mt-2 tracking-tight text-[var(--ink-primary)]">
-            Hesab Yarat
+          <h1 className="mt-4 text-[32px] font-semibold tracking-[-0.03em] text-[var(--ink-primary)]">
+            Create account
           </h1>
-          <p className="text-xs text-[var(--ink-secondary)] mt-1">
+          <p className="mt-2 text-[15px] leading-relaxed text-[var(--ink-secondary)]">
             {role === "STUDIO"
-              ? "Oyun studiyanız və komandanız üçün təhlükəsiz triaj mühiti qurun."
-              : "Playtester kimi qeydiyyatdan keçin və oyunları sınaqdan keçirərək coin qazanın."}
+              ? "Set up a secure triage space for your studio and team."
+              : "Join as a playtester and earn coins while you find bugs."}
           </p>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-[var(--sev-critical-wash)] border border-[var(--sev-critical)]/30 text-[var(--sev-critical)] text-xs rounded-[var(--radius-sm)] flex items-center gap-1.5">
-            <span>⚠️</span>
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* Animated Role toggle */}
-        <div className="flex border border-[var(--line-subtle)] rounded-[var(--radius-sm)] mb-6 p-1 bg-[var(--surface-page)] gap-1">
-          <button
-            type="button"
-            onClick={() => setRole("TESTER")}
-            className={`flex-1 py-2 text-xs font-semibold rounded-[var(--radius-sm)] transition-all flex items-center justify-center gap-1.5 ${
-              role === "TESTER"
-                ? "bg-[var(--accent)] text-[var(--accent-on-fill)] shadow-xs"
-                : "text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
-            }`}
+        <div className="rounded-[28px] border border-[var(--line-subtle)] bg-[var(--surface-raised)]/80 p-7 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          {/* Sliding role control */}
+          <div
+            role="tablist"
+            aria-label="Account type"
+            className="relative mb-7 grid grid-cols-2 rounded-full bg-[var(--surface-sunken)] p-1"
           >
-            <span>🎮</span>
-            <span>Playtester</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole("STUDIO")}
-            className={`flex-1 py-2 text-xs font-semibold rounded-[var(--radius-sm)] transition-all flex items-center justify-center gap-1.5 ${
-              role === "STUDIO"
-                ? "bg-[var(--accent)] text-[var(--accent-on-fill)] shadow-xs"
-                : "text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
-            }`}
-          >
-            <span>🏢</span>
-            <span>Game Studio</span>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="displayName"
-              className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1"
-            >
-              {role === "STUDIO" ? "Təmsilçi / Menecer Adı" : "Ad və Soyadınız"}
-            </label>
-            <input
-              id="displayName"
-              type="text"
-              required
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-              placeholder={role === "STUDIO" ? "Məs: Alex Chen" : "Məs: Sam Fisher"}
+            <span
+              aria-hidden
+              className="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-[var(--surface-overlay)] shadow-[0_1px_3px_rgba(0,0,0,0.35),inset_0_0_0_1px_var(--line-subtle)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              style={{
+                transform:
+                  role === "STUDIO" ? "translateX(100%)" : "translateX(0)",
+              }}
             />
+            {(
+              [
+                { id: "TESTER", label: "Playtester" },
+                { id: "STUDIO", label: "Game Studio" },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="tab"
+                aria-selected={role === option.id}
+                onClick={() => setRole(option.id)}
+                className={`relative z-10 rounded-full py-2.5 text-[13px] font-semibold transition-colors duration-200 ${
+                  role === option.id
+                    ? "text-[var(--ink-primary)]"
+                    : "text-[var(--ink-secondary)] hover:text-[var(--ink-primary)]"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
 
-          {/* Animated Company / Game Studio Details */}
-          {role === "STUDIO" && (
-            <div className="p-4 border border-[var(--accent)]/30 bg-[var(--surface-page)] rounded-[var(--radius-sm)] space-y-3 animate-in fade-in slide-in-from-top-2 duration-300 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--accent)] uppercase tracking-wider flex items-center gap-1.5">
-                  <span>🏢</span>
-                  <span>Şirkət / Studiya Məlumatı</span>
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--accent-wash)] text-[var(--accent)] border border-[var(--accent)]/30">
-                  Verified Studio
-                </span>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="studioName"
-                  className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1"
-                >
-                  Şirkət / Studiya Adı (Game Studio Name)
-                </label>
-                <input
-                  id="studioName"
-                  type="text"
-                  required
-                  value={studioName}
-                  onChange={(e) => setStudioName(e.target.value)}
-                  className="w-full px-3 py-2 border border-[var(--line-subtle)] bg-[var(--surface-raised)] text-[var(--ink-primary)] text-sm font-semibold rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                  placeholder="Məs: Northwind Games və ya Baku Tech Interactive"
-                />
-              </div>
-
-              {/* Dynamic slug & perks preview */}
-              <div className="pt-2 border-t border-[var(--line-subtle)] space-y-1.5 text-[11px] text-[var(--ink-secondary)]">
-                <div className="flex items-center justify-between font-mono">
-                  <span className="text-[var(--ink-tertiary)]">Studiya Linki:</span>
-                  <span className="text-[var(--accent)]">repro.dev/@{studioSlug}</span>
-                </div>
-                <div className="flex items-center gap-3 pt-1 text-[10px] text-[var(--ink-secondary)]">
-                  <span>✓ 16-bit Forensic Watermark</span>
-                  <span>✓ AI Triage Engine</span>
-                </div>
-              </div>
+          {error && (
+            <div
+              role="alert"
+              className="mb-5 flex items-start gap-2 rounded-2xl border border-[var(--sev-critical)]/25 bg-[var(--sev-critical-wash)] px-3.5 py-3 text-[13px] text-[var(--sev-critical)]"
+            >
+              <span aria-hidden>!</span>
+              <span>{error}</span>
             </div>
           )}
 
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1"
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label
+                  htmlFor="firstName"
+                  className="mb-1.5 block text-[12px] font-medium text-[var(--ink-secondary)]"
+                >
+                  First name
+                </label>
+                <input
+                  id="firstName"
+                  type="text"
+                  autoComplete="given-name"
+                  value={firstName}
+                  onChange={(e) => {
+                    setFirstName(e.target.value);
+                    if (touched)
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        firstName: undefined,
+                      }));
+                  }}
+                  className={inputClass(Boolean(fieldErrors.firstName))}
+                  placeholder="Alex"
+                />
+                {fieldErrors.firstName && (
+                  <p className="mt-1.5 text-[12px] text-[var(--sev-critical)]">
+                    {fieldErrors.firstName}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label
+                  htmlFor="lastName"
+                  className="mb-1.5 block text-[12px] font-medium text-[var(--ink-secondary)]"
+                >
+                  Last name
+                </label>
+                <input
+                  id="lastName"
+                  type="text"
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChange={(e) => {
+                    setLastName(e.target.value);
+                    if (touched)
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        lastName: undefined,
+                      }));
+                  }}
+                  className={inputClass(Boolean(fieldErrors.lastName))}
+                  placeholder="Chen"
+                />
+                {fieldErrors.lastName && (
+                  <p className="mt-1.5 text-[12px] text-[var(--sev-critical)]">
+                    {fieldErrors.lastName}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div
+              className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                role === "STUDIO"
+                  ? "grid-rows-[1fr] opacity-100"
+                  : "grid-rows-[0fr] opacity-0"
+              }`}
             >
-              Email Ünvanı
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-              placeholder={role === "STUDIO" ? "contact@studio.dev" : "alex@playtest.io"}
-            />
-          </div>
+              <div className="overflow-hidden">
+                <div className="mb-1 rounded-2xl border border-[var(--line-subtle)] bg-[var(--surface-page)]/60 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-[12px] font-semibold tracking-wide text-[var(--ink-secondary)]">
+                      Studio details
+                    </span>
+                    <span className="rounded-full bg-[var(--accent-wash)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent-text)]">
+                      Verified later
+                    </span>
+                  </div>
+                  <label
+                    htmlFor="studioName"
+                    className="mb-1.5 block text-[12px] font-medium text-[var(--ink-secondary)]"
+                  >
+                    Company / studio name
+                  </label>
+                  <input
+                    id="studioName"
+                    type="text"
+                    value={studioName}
+                    onChange={(e) => setStudioName(e.target.value)}
+                    className={inputClass(Boolean(fieldErrors.studioName))}
+                    placeholder="Northwind Games"
+                    required={role === "STUDIO"}
+                  />
+                  {fieldErrors.studioName && (
+                    <p className="mt-1.5 text-[12px] text-[var(--sev-critical)]">
+                      {fieldErrors.studioName}
+                    </p>
+                  )}
+                  <div className="mt-3 flex items-center justify-between border-t border-[var(--line-subtle)] pt-3 text-[12px] text-[var(--ink-secondary)]">
+                    <span>Studio link</span>
+                    <span className="font-mono text-[var(--accent-text)]">
+                      repro.dev/@{studioSlug}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1"
+            <div>
+              <label
+                htmlFor="email"
+                className="mb-1.5 block text-[12px] font-medium text-[var(--ink-secondary)]"
+              >
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClass(Boolean(fieldErrors.email))}
+                placeholder={
+                  role === "STUDIO" ? "contact@studio.dev" : "you@playtest.io"
+                }
+              />
+              {fieldErrors.email && (
+                <p className="mt-1.5 text-[12px] text-[var(--sev-critical)]">
+                  {fieldErrors.email}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="mb-1.5 block text-[12px] font-medium text-[var(--ink-secondary)]"
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClass(Boolean(fieldErrors.password))}
+                placeholder="At least 8 characters"
+              />
+              {password.length > 0 && (
+                <div className="mt-2">
+                  <div className="h-1 overflow-hidden rounded-full bg-[var(--surface-sunken)]">
+                    <div
+                      className="h-full rounded-full transition-all duration-300 ease-out"
+                      style={{
+                        width: `${Math.max(12, passwordAnalysis.score)}%`,
+                        background:
+                          passwordAnalysis.strength === "WEAK"
+                            ? "var(--sev-critical)"
+                            : passwordAnalysis.strength === "FAIR"
+                              ? "var(--sev-high)"
+                              : "var(--state-verified)",
+                      }}
+                    />
+                  </div>
+                  <p className="mt-1.5 text-[12px] text-[var(--ink-secondary)]">
+                    Strength: {passwordAnalysis.strength.replace("_", " ")}
+                  </p>
+                </div>
+              )}
+              {fieldErrors.password && (
+                <p className="mt-1.5 text-[12px] text-[var(--sev-critical)]">
+                  {fieldErrors.password}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label
+                htmlFor="birthDate"
+                className="mb-1.5 block text-[12px] font-medium text-[var(--ink-secondary)]"
+              >
+                Date of birth
+              </label>
+              <input
+                id="birthDate"
+                type="date"
+                required
+                max={maxBirthDate}
+                value={birthDate}
+                onChange={(e) => {
+                  setBirthDate(e.target.value);
+                  if (touched) {
+                    const ageCheck = validateAdultAge(e.target.value);
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      birthDate: ageCheck.valid
+                        ? undefined
+                        : (ageCheck.reason ?? "Invalid date of birth."),
+                    }));
+                  }
+                }}
+                className={inputClass(Boolean(fieldErrors.birthDate))}
+              />
+              <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--ink-secondary)]">
+                You must be 18 or older. Closed playtests require a legally
+                valid NDA.
+              </p>
+              {fieldErrors.birthDate && (
+                <p className="mt-1.5 text-[12px] text-[var(--sev-critical)]">
+                  {fieldErrors.birthDate}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-2 w-full rounded-full bg-[var(--accent)] px-4 py-3.5 text-[15px] font-semibold text-[var(--accent-on-fill)] shadow-[0_8px_24px_var(--accent-glow)] transition-[transform,background-color,opacity] duration-200 hover:bg-[var(--accent-hover)] active:scale-[0.98] disabled:opacity-50"
             >
-              Şifrə (ən azı 8 simvol)
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-              placeholder="••••••••"
-            />
-          </div>
+              {loading
+                ? "Creating account…"
+                : role === "STUDIO"
+                  ? "Create studio account"
+                  : "Create tester account"}
+            </button>
+          </form>
 
-          <div>
-            <label
-              htmlFor="birthDate"
-              className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1"
+          <p className="mt-6 text-center text-[13px] text-[var(--ink-secondary)]">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="font-semibold text-[var(--accent-text)] transition-opacity hover:opacity-80"
             >
-              Doğum Tarixi{" "}
-              <span className="text-[var(--ink-tertiary)] font-normal">
-                (NDA üçün 18+ yaş tələbi)
-              </span>
-            </label>
-            <input
-              id="birthDate"
-              type="date"
-              required
-              value={birthDate}
-              onChange={(e) => setBirthDate(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-            />
-            <p className="text-[11px] text-[var(--ink-secondary)] mt-1">
-              Qapalı oyun testlərində NDA hüquqi etibarlılığı üçün 18 yaş tələb olunur.
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 px-4 bg-[var(--accent)] text-[var(--accent-on-fill)] text-sm font-semibold rounded-[var(--radius-sm)] hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-all shadow-md mt-2"
-          >
-            {loading
-              ? "Qeydiyyat aparılır..."
-              : role === "STUDIO"
-                ? "🏢 Studiya Hesabını Yarat"
-                : "🎮 Tester Hesabını Aç"}
-          </button>
-        </form>
-
-        <div className="mt-6 pt-4 border-t border-[var(--line-subtle)] text-center text-xs text-[var(--ink-secondary)]">
-          Artıq hesabınız var?{" "}
-          <Link
-            href="/login"
-            className="text-[var(--accent)] hover:underline font-medium"
-          >
-            Daxil olun
-          </Link>
+              Sign in
+            </Link>
+          </p>
         </div>
       </div>
     </main>

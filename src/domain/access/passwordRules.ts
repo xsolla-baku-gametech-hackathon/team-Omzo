@@ -47,15 +47,17 @@ export function validatePasswordStrength(password: string): PasswordAnalysis {
   const hasSpecialChar = /[^A-Za-z0-9]/.test(trimmed);
 
   if (!hasMinLength) {
-    errors.push("Şifrə ən azı 8 simvoldan ibarət olmalıdır.");
+    errors.push("Password must be at least 8 characters.");
   }
   if (!hasMaxLength) {
-    errors.push("Şifrə maksimum 128 simvol ola bilər.");
+    errors.push("Password must be at most 128 characters.");
   }
 
   const lower = trimmed.toLowerCase();
   if (COMMON_WEAK_PASSWORDS.has(lower)) {
-    errors.push("Bu şifrə çox sadə və geniş yayılmışdır, daha mürəkkəb kombinasiya seçin.");
+    errors.push(
+      "This password is too common. Choose a stronger combination.",
+    );
   }
 
   // Calculate entropy score
@@ -74,7 +76,13 @@ export function validatePasswordStrength(password: string): PasswordAnalysis {
 
   // Determine strength label
   let strength: PasswordAnalysis["strength"] = "WEAK";
-  if (score >= 80 && hasUppercase && hasLowercase && hasNumber && hasSpecialChar) {
+  if (
+    score >= 80 &&
+    hasUppercase &&
+    hasLowercase &&
+    hasNumber &&
+    hasSpecialChar
+  ) {
     strength = "VERY_STRONG";
   } else if (score >= 60 && ((hasUppercase && hasLowercase) || hasNumber)) {
     strength = "STRONG";
@@ -84,7 +92,8 @@ export function validatePasswordStrength(password: string): PasswordAnalysis {
     strength = "WEAK";
   }
 
-  const isValid = hasMinLength && hasMaxLength && !COMMON_WEAK_PASSWORDS.has(lower);
+  const isValid =
+    hasMinLength && hasMaxLength && !COMMON_WEAK_PASSWORDS.has(lower);
 
   return {
     isValid,
