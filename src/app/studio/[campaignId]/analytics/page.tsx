@@ -1,10 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
+import { CampaignAnalyticsReport } from "@/components/CampaignAnalyticsReport";
 import { ConsoleNavLink, ConsoleShell } from "@/components/ConsoleShell";
-import { toBoardIssue } from "@/components/boardIssue";
-import { IssueBoard } from "@/components/IssueBoard";
-import type { BoardIssue } from "@/components/IssueBoard";
-import type { StreamReport } from "@/components/RawStream";
 import { getStudioCampaign } from "@/server/services/campaignService";
 import {
   UnauthorizedIssueMutationError,
@@ -12,7 +9,7 @@ import {
 } from "@/server/services/issueService";
 import { getSession } from "@/server/session";
 
-export default async function CampaignBoardPage(props: {
+export default async function CampaignAnalyticsPage(props: {
   params: Promise<{ campaignId: string }>;
 }) {
   const { campaignId } = await props.params;
@@ -34,43 +31,32 @@ export default async function CampaignBoardPage(props: {
     throw error;
   }
 
-  const issues: BoardIssue[] = board.issues.map(toBoardIssue);
-
-  const reports: StreamReport[] = board.reports.map((report) => {
-    const state = report.gameState as { scene?: string } | null;
-    return {
-      id: report.id,
-      body: report.body,
-      scene: state?.scene ?? "unknown",
-      isNoise: report.isNoise,
-      issueTitle: null,
-      createdAt: report.createdAt.getTime(),
-    };
-  });
-
   return (
     <ConsoleShell
       campaignName={campaign.title}
       actions={
         <>
-          <ConsoleNavLink href={`/studio/${campaignId}/analytics`}>
-            Report
-          </ConsoleNavLink>
+          <ConsoleNavLink href={`/studio/${campaignId}`}>Board</ConsoleNavLink>
           <ConsoleNavLink href={`/studio/${campaignId}/rewards`}>
             Rewards
           </ConsoleNavLink>
           <ConsoleNavLink href={`/studio/${campaignId}/forensics`}>
             Forensics
           </ConsoleNavLink>
-          <ConsoleNavLink href="/studio">Campaigns</ConsoleNavLink>
         </>
       }
     >
-      <IssueBoard
-        campaignId={campaignId}
-        initialIssues={issues}
-        initialReports={reports}
-        initialStats={board.stats}
+      <CampaignAnalyticsReport
+        campaignTitle={campaign.title}
+        stats={board.stats}
+        issues={board.issues.map((issue) => ({
+          id: issue.id,
+          title: issue.title,
+          category: issue.category,
+          severity: issue.severity,
+          status: issue.status,
+          occurrenceCount: issue.occurrenceCount,
+        }))}
       />
     </ConsoleShell>
   );
