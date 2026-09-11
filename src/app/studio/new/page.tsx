@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   DEFAULT_BUILD_KIND,
@@ -12,6 +12,27 @@ import {
   deliveryModeOf,
   type BuildKind,
 } from "@/domain/campaigns/delivery";
+import {
+  InvalidCampaignWindowsError,
+  assertCampaignWindows,
+} from "@/domain/campaigns/windows";
+
+function toLocalInputValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function defaultWindowInputs() {
+  const now = new Date();
+  const applyClose = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const testEnd = new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000);
+  return {
+    applicationOpensAt: toLocalInputValue(now),
+    applicationClosesAt: toLocalInputValue(applyClose),
+    testingStartsAt: toLocalInputValue(now),
+    testingEndsAt: toLocalInputValue(testEnd),
+  };
+}
 
 const DEFAULT_NDA = `# Playtest Non-Disclosure Agreement
 
@@ -175,10 +196,59 @@ export default function NewCampaignPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] =
     useState<string>("Indie Steam Alpha");
+  const [studioName, setStudioName] = useState<string>("");
+  const initialWindows = defaultWindowInputs();
+  const [applicationOpensAt, setApplicationOpensAt] = useState(
+    initialWindows.applicationOpensAt,
+  );
+  const [applicationClosesAt, setApplicationClosesAt] = useState(
+    initialWindows.applicationClosesAt,
+  );
+  const [testingStartsAt, setTestingStartsAt] = useState(
+    initialWindows.testingStartsAt,
+  );
+  const [testingEndsAt, setTestingEndsAt] = useState(
+    initialWindows.testingEndsAt,
+  );
 
   const deliveryMode = deliveryModeOf(buildKind);
   const capabilities = capabilitiesOf(buildKind);
   const urlVerdict = classifyBuildUrl(buildUrl);
+
+  useEffect(() => {
+    void fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.user?.studio?.name) {
+          setStudioName(data.user.studio.name as string);
+        }
+      })
+      .catch(() => {
+        /* ignore — studio name is display-only */
+      });
+  }, []);
+
+  const windowError = useMemo(() => {
+    if (buildKind !== "DOWNLOAD") return null;
+    try {
+      assertCampaignWindows({
+        applicationOpensAt: new Date(applicationOpensAt),
+        applicationClosesAt: new Date(applicationClosesAt),
+        testingStartsAt: new Date(testingStartsAt),
+        testingEndsAt: new Date(testingEndsAt),
+      });
+      return null;
+    } catch (err) {
+      if (err instanceof InvalidCampaignWindowsError) return err.message;
+      return "Invalid application or testing windows.";
+    }
+  }, [
+    buildKind,
+    applicationOpensAt,
+    applicationClosesAt,
+    testingStartsAt,
+    testingEndsAt,
+  ]);
 
   function applyPreset(p: Preset) {
     setSelectedPreset(p.name);
@@ -195,23 +265,35 @@ export default function NewCampaignPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (buildKind === "DOWNLOAD" && windowError) {
+      setError(windowError);
+      return;
+    }
     setLoading(true);
 
     try {
+      const body: Record<string, unknown> = {
+        title,
+        pitch,
+        testFocus,
+        buildKind,
+        buildUrl,
+        ndaBodyMd,
+        rewardPoolTotal: Number(rewardPoolTotal),
+        rewardPerIssue: Number(rewardPerIssue),
+        maxTesters: Number(maxTesters),
+      };
+      if (buildKind === "DOWNLOAD") {
+        body.applicationOpensAt = new Date(applicationOpensAt).toISOString();
+        body.applicationClosesAt = new Date(applicationClosesAt).toISOString();
+        body.testingStartsAt = new Date(testingStartsAt).toISOString();
+        body.testingEndsAt = new Date(testingEndsAt).toISOString();
+      }
+
       const res = await fetch("/api/campaigns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          pitch,
-          testFocus,
-          buildKind,
-          buildUrl,
-          ndaBodyMd,
-          rewardPoolTotal: Number(rewardPoolTotal),
-          rewardPerIssue: Number(rewardPerIssue),
-          maxTesters: Number(maxTesters),
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
@@ -406,6 +488,22 @@ export default function NewCampaignPage() {
                     </h3>
                     <p className="text-xs text-[var(--ink-secondary)] mt-0.5">
                       What testers see on the home page and playtest list.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1.5">
+                      Studio name
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={studioName || "Loading…"}
+                      className="w-full px-3.5 py-2.5 border border-[var(--line-subtle)] bg-[var(--surface-sunken)] text-[var(--ink-secondary)] text-sm rounded-[var(--radius-sm)]"
+                    />
+                    <p className="mt-1 text-[11px] text-[var(--ink-tertiary)]">
+                      Shown on the playtest card so testers know who they are
+                      applying to.
                     </p>
                   </div>
 
@@ -606,6 +704,98 @@ export default function NewCampaignPage() {
                     />
                   </div>
 
+                  {buildKind === "DOWNLOAD" && (
+                    <div className="space-y-3 rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-sunken)] p-3.5">
+                      <div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-secondary)]">
+                          Application & testing windows
+                        </div>
+                        <p className="mt-1 text-[11px] text-[var(--ink-tertiary)] leading-relaxed">
+                          Testers apply during the application window. Approved
+                          testers can download and report only while testing is
+                          open.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label
+                            htmlFor="applicationOpensAt"
+                            className="mb-1 block text-[11px] text-[var(--ink-secondary)]"
+                          >
+                            Applications open
+                          </label>
+                          <input
+                            id="applicationOpensAt"
+                            type="datetime-local"
+                            required
+                            value={applicationOpensAt}
+                            onChange={(e) =>
+                              setApplicationOpensAt(e.target.value)
+                            }
+                            className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-xs text-[var(--ink-primary)]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="applicationClosesAt"
+                            className="mb-1 block text-[11px] text-[var(--ink-secondary)]"
+                          >
+                            Applications close
+                          </label>
+                          <input
+                            id="applicationClosesAt"
+                            type="datetime-local"
+                            required
+                            value={applicationClosesAt}
+                            onChange={(e) =>
+                              setApplicationClosesAt(e.target.value)
+                            }
+                            className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-xs text-[var(--ink-primary)]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="testingStartsAt"
+                            className="mb-1 block text-[11px] text-[var(--ink-secondary)]"
+                          >
+                            Testing starts
+                          </label>
+                          <input
+                            id="testingStartsAt"
+                            type="datetime-local"
+                            required
+                            value={testingStartsAt}
+                            onChange={(e) =>
+                              setTestingStartsAt(e.target.value)
+                            }
+                            className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-xs text-[var(--ink-primary)]"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="testingEndsAt"
+                            className="mb-1 block text-[11px] text-[var(--ink-secondary)]"
+                          >
+                            Testing ends
+                          </label>
+                          <input
+                            id="testingEndsAt"
+                            type="datetime-local"
+                            required
+                            value={testingEndsAt}
+                            onChange={(e) => setTestingEndsAt(e.target.value)}
+                            className="w-full rounded-[var(--radius-sm)] border border-[var(--line-subtle)] bg-[var(--surface-page)] px-2.5 py-2 text-xs text-[var(--ink-primary)]"
+                          />
+                        </div>
+                      </div>
+                      {windowError && (
+                        <p className="text-[11px] text-[var(--sev-critical)]">
+                          {windowError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <div className="pt-2 flex justify-between items-center">
                     <button
                       type="button"
@@ -617,7 +807,8 @@ export default function NewCampaignPage() {
                     <button
                       type="button"
                       onClick={() => setActiveStep(3)}
-                      className="py-2 px-5 bg-[var(--accent)] text-[var(--accent-on-fill)] text-xs font-semibold rounded-[var(--radius-sm)] hover:bg-[var(--accent-hover)] transition-all"
+                      disabled={buildKind === "DOWNLOAD" && Boolean(windowError)}
+                      className="py-2 px-5 bg-[var(--accent)] text-[var(--accent-on-fill)] text-xs font-semibold rounded-[var(--radius-sm)] hover:bg-[var(--accent-hover)] transition-all disabled:opacity-40"
                     >
                       Next: Rewards & NDA →
                     </button>

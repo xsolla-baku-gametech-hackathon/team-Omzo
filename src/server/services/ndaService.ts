@@ -4,8 +4,11 @@ import {
   calculateAge,
   validateLegalName,
 } from "@/domain/access/identityRules";
+import { effectiveNdaBody } from "@/domain/campaigns/leakRider";
+import { canPlay } from "@/domain/campaigns/windows";
 import { requireSecret } from "@/server/config/secrets";
 import { db } from "@/server/db";
+import { isApprovedForDownload } from "@/server/services/applicationService";
 import type { NdaSignature } from "@prisma/client";
 
 export { calculateAge } from "@/domain/access/identityRules";
@@ -36,6 +39,8 @@ export interface SignNdaInput {
   readonly typedName: string;
   readonly userAgent: string;
   readonly clientIp: string;
+  /** Required for DOWNLOAD campaigns — redistribution acknowledgement. */
+  readonly acceptedNoRedistribution?: boolean;
 }
 
 export class UnderageError extends Error {
@@ -72,6 +77,24 @@ export class InvalidTypedNameError extends Error {
   }
 }
 
+export class RedistributionAckRequiredError extends Error {
+  constructor() {
+    super(
+      "You must acknowledge that you will not redistribute the download build.",
+    );
+    this.name = "RedistributionAckRequiredError";
+  }
+}
+
+export class ApprovalRequiredForNdaError extends Error {
+  constructor() {
+    super(
+      "The studio must approve your application before you can sign this NDA.",
+    );
+    this.name = "ApprovalRequiredForNdaError";
+  }
+}
+
 /** @deprecated Prefer validateLegalName from domain/access/identityRules. */
 export function isValidLegalName(name: string): {
   valid: boolean;
@@ -103,7 +126,17 @@ export async function signNda(input: SignNdaInput): Promise<NdaSignature> {
   const [campaign, user] = await Promise.all([
     db.campaign.findUnique({
       where: { id: input.campaignId },
-      select: { id: true, status: true, revokedAt: true, ndaBodyMd: true },
+      select: {
+        id: true,
+        status: true,
+        revokedAt: true,
+        ndaBodyMd: true,
+        buildKind: true,
+        applicationOpensAt: true,
+        applicationClosesAt: true,
+        testingStartsAt: true,
+        testingEndsAt: true,
+      },
     }),
     db.user.findUnique({
       where: { id: input.userId },
@@ -119,6 +152,30 @@ export async function signNda(input: SignNdaInput): Promise<NdaSignature> {
     throw new CampaignNotOpenForSigningError(input.campaignId);
   }
 
+  if (
+    !canPlay({
+      applicationOpensAt: campaign.applicationOpensAt,
+      applicationClosesAt: campaign.applicationClosesAt,
+      testingStartsAt: campaign.testingStartsAt,
+      testingEndsAt: campaign.testingEndsAt,
+    })
+  ) {
+    throw new CampaignNotOpenForSigningError(input.campaignId);
+  }
+
+  if (campaign.buildKind === "DOWNLOAD") {
+    const approved = await isApprovedForDownload(
+      input.campaignId,
+      input.userId,
+    );
+    if (!approved) {
+      throw new ApprovalRequiredForNdaError();
+    }
+    if (input.acceptedNoRedistribution !== true) {
+      throw new RedistributionAckRequiredError();
+    }
+  }
+
   if (user === null || user.birthDate === null) {
     throw new MissingBirthDateError();
   }
@@ -128,7 +185,8 @@ export async function signNda(input: SignNdaInput): Promise<NdaSignature> {
     throw new UnderageError();
   }
 
-  const ndaBodyHash = hashNdaBody(campaign.ndaBodyMd);
+  const bodyToSign = effectiveNdaBody(campaign.ndaBodyMd, campaign.buildKind);
+  const ndaBodyHash = hashNdaBody(bodyToSign);
   const ipHash = hashIp(input.clientIp);
 
   return db.ndaSignature.upsert({

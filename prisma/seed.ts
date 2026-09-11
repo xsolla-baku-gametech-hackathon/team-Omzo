@@ -96,6 +96,10 @@ async function seedAccounts(passwordHash: string): Promise<void> {
       rewardPoolTotal: 5000,
       rewardPerIssue: 50,
       maxTesters: 200,
+      applicationOpensAt: new Date(),
+      applicationClosesAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      testingStartsAt: new Date(),
+      testingEndsAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
     },
   });
 

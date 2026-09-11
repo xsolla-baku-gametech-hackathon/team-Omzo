@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { trustLevelOf, trustTierOf } from "@/domain/trust/level";
 import { db } from "@/server/db";
 import { getSession } from "@/server/session";
 
@@ -26,5 +27,13 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ user: null }, { status: 401 });
   }
 
-  return NextResponse.json({ user });
+  const trustLevel = trustLevelOf(user.signalScore);
+
+  return NextResponse.json({
+    user: {
+      ...user,
+      trustLevel,
+      trustTier: trustTierOf(trustLevel),
+    },
+  });
 }

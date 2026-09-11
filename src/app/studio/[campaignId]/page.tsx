@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 
+import { ApplicantsPanel } from "@/components/ApplicantsPanel";
 import { ConsoleNavLink, ConsoleShell } from "@/components/ConsoleShell";
 import { toBoardIssue } from "@/components/boardIssue";
 import { IssueBoard } from "@/components/IssueBoard";
@@ -66,6 +67,7 @@ export default async function CampaignBoardPage(props: {
         </>
       }
     >
+      <ApplicantsPanel campaignId={campaignId} buildKind={campaign.buildKind} />
       <IssueBoard
         campaignId={campaignId}
         initialIssues={issues}

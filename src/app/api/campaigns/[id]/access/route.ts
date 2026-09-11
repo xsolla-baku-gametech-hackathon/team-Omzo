@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import {
   AccessRateLimitExceededError,
+  ApplicationRequiredError,
   CampaignNotAvailableError,
   NdaRequiredError,
   issueAccessGrant,
@@ -47,6 +48,12 @@ export async function POST(
     if (error instanceof NdaRequiredError) {
       return NextResponse.json(
         { error: "nda_required", message: error.message },
+        { status: 403 },
+      );
+    }
+    if (error instanceof ApplicationRequiredError) {
+      return NextResponse.json(
+        { error: "approval_required", message: error.message },
         { status: 403 },
       );
     }

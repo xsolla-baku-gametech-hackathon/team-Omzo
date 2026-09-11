@@ -112,6 +112,10 @@ beforeAll(async () => {
       buildKind: "EXTERNAL_LINK",
       buildUrl: "https://example.test/build",
       ndaBodyMd: "-",
+      applicationOpensAt: new Date(),
+      applicationClosesAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      testingStartsAt: new Date(),
+      testingEndsAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
     },
   });
   // Participation. The outsider deliberately signs nothing.
@@ -264,6 +268,10 @@ describe("coins are spent with the campaign that paid them", () => {
         buildKind: "EXTERNAL_LINK",
         buildUrl: "https://example.test/other",
         ndaBodyMd: "-",
+        applicationOpensAt: new Date(),
+        applicationClosesAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        testingStartsAt: new Date(),
+        testingEndsAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       },
     });
 

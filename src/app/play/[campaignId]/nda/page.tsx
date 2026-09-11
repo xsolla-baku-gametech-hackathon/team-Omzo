@@ -14,6 +14,7 @@ interface CampaignData {
   id: string;
   title: string;
   ndaBodyMd: string;
+  buildKind?: string;
 }
 
 export default function NdaSigningPage() {
@@ -25,6 +26,9 @@ export default function NdaSigningPage() {
   const [typedName, setTypedName] = useState("");
   const [typedNameTouched, setTypedNameTouched] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [noRedistrib, setNoRedistrib] = useState(false);
+  const [requiresRedistributionAck, setRequiresRedistributionAck] =
+    useState(false);
   const [isHuman, setIsHuman] = useState(false);
   const [birthDate, setBirthDate] = useState("");
   const [birthDateTouched, setBirthDateTouched] = useState(false);
@@ -52,10 +56,19 @@ export default function NdaSigningPage() {
     return (
       agreed &&
       isHuman &&
+      (!requiresRedistributionAck || noRedistrib) &&
       validateLegalName(typedName).valid &&
       validateAdultAge(birthDate).valid
     );
-  }, [alreadySigned, agreed, isHuman, typedName, birthDate]);
+  }, [
+    alreadySigned,
+    agreed,
+    isHuman,
+    noRedistrib,
+    requiresRedistributionAck,
+    typedName,
+    birthDate,
+  ]);
 
   useEffect(() => {
     async function load() {
@@ -76,11 +89,26 @@ export default function NdaSigningPage() {
 
         if (ndaRes.ok) {
           const ndaData = await ndaRes.json();
+          if (typeof ndaData.ndaBodyMd === "string") {
+            setCampaign((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    ndaBodyMd: ndaData.ndaBodyMd,
+                    buildKind: ndaData.buildKind ?? prev.buildKind,
+                  }
+                : prev,
+            );
+          }
+          setRequiresRedistributionAck(
+            ndaData.requiresRedistributionAck === true,
+          );
           if (ndaData.signed) {
             setAlreadySigned(true);
             setTypedName(ndaData.signature?.typedName ?? "");
             setIsHuman(true);
             setAgreed(true);
+            setNoRedistrib(true);
           }
         }
       } catch (err) {
@@ -129,6 +157,9 @@ export default function NdaSigningPage() {
             birthDate,
             attestedHuman: isHuman,
             agreedToTerms: agreed,
+            acceptedNoRedistribution: requiresRedistributionAck
+              ? noRedistrib
+              : undefined,
           }),
         });
 
@@ -396,6 +427,28 @@ export default function NdaSigningPage() {
                     leaks.
                   </label>
                 </div>
+
+                {requiresRedistributionAck && (
+                  <div className="flex items-start gap-2 rounded-2xl border border-[var(--sev-high)]/30 bg-[var(--sev-high)]/5 p-3">
+                    <input
+                      id="noRedistrib"
+                      type="checkbox"
+                      required
+                      checked={noRedistrib}
+                      onChange={(e) => setNoRedistrib(e.target.checked)}
+                      className="mt-1 accent-[var(--accent)]"
+                    />
+                    <label
+                      htmlFor="noRedistrib"
+                      className="text-xs text-[var(--ink-secondary)] leading-relaxed cursor-pointer"
+                    >
+                      I will not redistribute, upload, torrent, or publicly
+                      share this download build. I understand a leak may lead
+                      to revoked access, forfeited rewards, and legal action by
+                      the studio.
+                    </label>
+                  </div>
+                )}
 
                 <div className="p-4 bg-[var(--surface-sunken)] border border-[var(--line-subtle)] rounded-2xl text-xs text-[var(--ink-secondary)] leading-relaxed">
                   <strong className="text-[var(--ink-primary)]">Privacy:</strong>{" "}

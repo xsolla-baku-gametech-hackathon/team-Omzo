@@ -58,6 +58,10 @@ async function seedCampaign(): Promise<void> {
       ndaBodyMd: "-",
       rewardPoolTotal: POOL,
       rewardPerIssue: REWARD,
+      applicationOpensAt: new Date(),
+      applicationClosesAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      testingStartsAt: new Date(),
+      testingEndsAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
     },
   });
   await db.issue.create({
@@ -171,6 +175,10 @@ describe("a pool that cannot cover the payout", () => {
         // Funded for one payout, with two issues to verify.
         rewardPoolTotal: REWARD,
         rewardPerIssue: REWARD,
+        applicationOpensAt: new Date(),
+        applicationClosesAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        testingStartsAt: new Date(),
+        testingEndsAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       },
     });
 

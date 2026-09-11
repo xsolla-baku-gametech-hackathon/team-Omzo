@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { classifyBuildUrl } from "@/domain/campaigns/delivery";
+import { InvalidCampaignWindowsError } from "@/domain/campaigns/windows";
 
 import { checkCampaignAllowance } from "@/server/services/billingService";
 import {
@@ -29,21 +30,46 @@ const buildUrlSchema = z
     }
   });
 
-const createCampaignSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(2, "Title must be at least 2 characters")
-    .max(120),
-  pitch: z.string().trim().min(1, "Pitch cannot be empty").max(1000),
-  testFocus: z.string().trim().min(1, "Test focus cannot be empty").max(1000),
-  buildKind: z.enum(["WEB_EMBED", "DOWNLOAD", "EXTERNAL_LINK"]),
-  buildUrl: buildUrlSchema,
-  ndaBodyMd: z.string().trim().min(1, "NDA text is required").max(10000),
-  maxTesters: z.coerce.number().int().positive().default(200),
-  rewardPoolTotal: z.coerce.number().int().nonnegative().default(0),
-  rewardPerIssue: z.coerce.number().int().positive().default(50),
-});
+const isoDate = z.coerce.date();
+
+const createCampaignSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(2, "Title must be at least 2 characters")
+      .max(120),
+    pitch: z.string().trim().min(1, "Pitch cannot be empty").max(1000),
+    testFocus: z.string().trim().min(1, "Test focus cannot be empty").max(1000),
+    buildKind: z.enum(["WEB_EMBED", "DOWNLOAD", "EXTERNAL_LINK"]),
+    buildUrl: buildUrlSchema,
+    ndaBodyMd: z.string().trim().min(1, "NDA text is required").max(10000),
+    maxTesters: z.coerce.number().int().positive().default(200),
+    rewardPoolTotal: z.coerce.number().int().nonnegative().default(0),
+    rewardPerIssue: z.coerce.number().int().positive().default(50),
+    applicationOpensAt: isoDate.optional(),
+    applicationClosesAt: isoDate.optional(),
+    testingStartsAt: isoDate.optional(),
+    testingEndsAt: isoDate.optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.buildKind !== "DOWNLOAD") return;
+    const required = [
+      "applicationOpensAt",
+      "applicationClosesAt",
+      "testingStartsAt",
+      "testingEndsAt",
+    ] as const;
+    for (const key of required) {
+      if (data[key] === undefined) {
+        ctx.addIssue({
+          code: "custom",
+          path: [key],
+          message: "Required for download campaigns.",
+        });
+      }
+    }
+  });
 
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
@@ -127,6 +153,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
     return NextResponse.json({ campaign }, { status: 201 });
   } catch (error) {
+    if (error instanceof InvalidCampaignWindowsError) {
+      return NextResponse.json(
+        { error: "invalid_windows", message: error.message },
+        { status: 422 },
+      );
+    }
     console.error("[createCampaign] failed", error);
     return NextResponse.json(
       {

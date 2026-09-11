@@ -2,8 +2,10 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { signGrantToken, verifyGrantToken } from "@/domain/access/token";
 import type { GrantTokenPayload } from "@/domain/access/token";
+import { canPlay } from "@/domain/campaigns/windows";
 import { requireSecret } from "@/server/config/secrets";
 import { db } from "@/server/db";
+import { isApprovedForDownload } from "@/server/services/applicationService";
 import type {
   AccessGrant,
   AccessOutcome,
@@ -170,6 +172,33 @@ export class AccessConsumedError extends AccessDeniedError {
   }
 }
 
+export class AccessOutsideWindowError extends AccessDeniedError {
+  override readonly outcome: AccessOutcome = "DENIED_OUTSIDE_WINDOW";
+  constructor() {
+    super("This campaign's testing window is closed.");
+    this.name = "AccessOutsideWindowError";
+  }
+}
+
+export class AccessNotApprovedError extends AccessDeniedError {
+  override readonly outcome: AccessOutcome = "DENIED_NOT_APPROVED";
+  constructor() {
+    super(
+      "You must be approved by the studio before accessing this download build.",
+    );
+    this.name = "AccessNotApprovedError";
+  }
+}
+
+export class ApplicationRequiredError extends Error {
+  constructor() {
+    super(
+      "This download campaign requires studio approval before you can receive access.",
+    );
+    this.name = "ApplicationRequiredError";
+  }
+}
+
 export function hashUserAgent(userAgent: string): string {
   return createHash("sha256").update(userAgent.trim()).digest("hex");
 }
@@ -222,7 +251,16 @@ export async function issueAccessGrant(
   const [campaign, hasSigned] = await Promise.all([
     db.campaign.findUnique({
       where: { id: input.campaignId },
-      select: { id: true, status: true, revokedAt: true },
+      select: {
+        id: true,
+        status: true,
+        revokedAt: true,
+        buildKind: true,
+        applicationOpensAt: true,
+        applicationClosesAt: true,
+        testingStartsAt: true,
+        testingEndsAt: true,
+      },
     }),
     db.ndaSignature.findUnique({
       where: {
@@ -241,6 +279,29 @@ export async function issueAccessGrant(
     campaign.revokedAt !== null
   ) {
     throw new CampaignNotAvailableError();
+  }
+
+  if (
+    !canPlay({
+      applicationOpensAt: campaign.applicationOpensAt,
+      applicationClosesAt: campaign.applicationClosesAt,
+      testingStartsAt: campaign.testingStartsAt,
+      testingEndsAt: campaign.testingEndsAt,
+    })
+  ) {
+    throw new CampaignNotAvailableError(
+      "This campaign's testing window is not open.",
+    );
+  }
+
+  if (campaign.buildKind === "DOWNLOAD") {
+    const approved = await isApprovedForDownload(
+      input.campaignId,
+      input.userId,
+    );
+    if (!approved) {
+      throw new ApplicationRequiredError();
+    }
   }
 
   if (hasSigned === null) {
@@ -393,6 +454,24 @@ export async function validateAccessGrant(
   // Revocation check (§6.1)
   if (campaign.status === "CLOSED" || campaign.revokedAt !== null) {
     throw denied(new AccessRevokedError(), context);
+  }
+
+  if (
+    !canPlay({
+      applicationOpensAt: campaign.applicationOpensAt,
+      applicationClosesAt: campaign.applicationClosesAt,
+      testingStartsAt: campaign.testingStartsAt,
+      testingEndsAt: campaign.testingEndsAt,
+    })
+  ) {
+    throw denied(new AccessOutsideWindowError(), context);
+  }
+
+  if (campaign.buildKind === "DOWNLOAD") {
+    const approved = await isApprovedForDownload(campaign.id, grant.userId);
+    if (!approved) {
+      throw denied(new AccessNotApprovedError(), context);
+    }
   }
 
   // Expiration check
