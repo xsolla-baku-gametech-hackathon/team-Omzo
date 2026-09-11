@@ -51,11 +51,22 @@ describe("plan catalogue", () => {
     expect(annualSavingMonths(resolvePlan("self_hosted"))).toBe(0);
   });
 
-  it("ships watermarking on every tier including free", () => {
-    // It is the product's central promise. A crippled version teaches a
-    // studio the wrong thing about what they are evaluating.
-    const free = resolvePlan("free");
-    expect(free.features.some((f) => /watermark/i.test(f))).toBe(true);
+  it("keeps free on link-only, and sells hosting as the upgrade", () => {
+    // Free is the tier where nothing of ours holds the studio's binary. That
+    // is the whole entry pitch, and it is also what a studio pays to leave:
+    // hosting is what frame watermarking needs.
+    expect(resolvePlan("free").limits.hostedDelivery).toBe(false);
+    for (const id of ["studio", "publisher", "self_hosted"] as const) {
+      expect(resolvePlan(id).limits.hostedDelivery).toBe(true);
+    }
+  });
+
+  it("prices against developer-days, not against zero", () => {
+    // The objection is "we have no QA budget". A year of Studio has to be
+    // obviously cheaper than the couple of developer-days per cycle currently
+    // spent reading Discord, or the comparison has to be argued rather than
+    // stated.
+    expect(resolvePlan("studio").monthlyCents).toBeLessThan(10_000);
   });
 
   it("charges less per tester as the tier grows", () => {
@@ -69,20 +80,20 @@ describe("metering", () => {
   it("reports headroom below the included allowance", () => {
     const [, testers] = meter(usage(100), resolvePlan("studio"));
     expect(testers.used).toBe(100);
-    expect(testers.included).toBe(250);
+    expect(testers.included).toBe(500);
     expect(testers.over).toBe(0);
-    expect(testers.ratio).toBeCloseTo(0.4);
+    expect(testers.ratio).toBeCloseTo(0.2);
   });
 
   it("clamps the ratio at the allowance so a bar cannot overflow", () => {
     const [, testers] = meter(usage(1_000), resolvePlan("studio"));
     expect(testers.ratio).toBe(1);
-    expect(testers.over).toBe(750);
+    expect(testers.over).toBe(500);
   });
 
   it("shows an unmetered axis as empty rather than full", () => {
     // Unlimited campaigns rendering as a full bar would read as "at limit".
-    const [campaigns] = meter(usage(0, 0, 40), resolvePlan("studio"));
+    const [campaigns] = meter(usage(0, 0, 40), resolvePlan("publisher"));
     expect(campaigns.included).toBeNull();
     expect(campaigns.ratio).toBe(0);
     expect(campaigns.over).toBe(0);
@@ -98,20 +109,21 @@ describe("metering", () => {
 
 describe("overage", () => {
   it("is nothing while inside the allowances", () => {
-    expect(overageCents(usage(250, 50_000), resolvePlan("studio"))).toBe(0);
+    expect(overageCents(usage(500, 50_000), resolvePlan("studio"))).toBe(0);
   });
 
   it("bills each tester past the allowance", () => {
-    // 10 over at $1.20
-    expect(overageCents(usage(260, 0), resolvePlan("studio"))).toBe(1_200);
+    // 10 over at $0.15
+    expect(overageCents(usage(510, 0), resolvePlan("studio"))).toBe(150);
   });
 
-  it("bills reports in whole blocks, not fractions of a cent", () => {
+  it("never bills for report volume on a paid plan", () => {
+    // Clustering gets better with volume. A per-report line would charge a
+    // studio for the product working.
     const studio = resolvePlan("studio");
-    // One report over still buys a whole 10k block.
-    expect(overageCents(usage(0, 50_001), studio)).toBe(800);
-    expect(overageCents(usage(0, 60_000), studio)).toBe(800);
-    expect(overageCents(usage(0, 60_001), studio)).toBe(1_600);
+    expect(studio.limits.reportsPerMonth).toBeNull();
+    expect(overageCents(usage(0, 5_000_000), studio)).toBe(0);
+    expect(overageCents(usage(0, 5_000_000), resolvePlan("publisher"))).toBe(0);
   });
 
   it("is zero on a plan with no overage terms", () => {
@@ -121,7 +133,7 @@ describe("overage", () => {
 
   it("adds base and overage into the period total", () => {
     const studio = resolvePlan("studio");
-    expect(monthlyTotalCents(studio, usage(260, 50_000))).toBe(29_000 + 1_200);
+    expect(monthlyTotalCents(studio, usage(510, 50_000))).toBe(4_900 + 150);
   });
 
   it("returns no total for a plan that is negotiated", () => {
@@ -131,7 +143,7 @@ describe("overage", () => {
 
 describe("plan recommendation", () => {
   it("keeps a small team on free", () => {
-    expect(recommendPlan(usage(20, 1_000, 1)).id).toBe("free");
+    expect(recommendPlan(usage(20, 300, 1)).id).toBe("free");
   });
 
   it("moves a second campaign off free even at low volume", () => {
@@ -140,6 +152,10 @@ describe("plan recommendation", () => {
 
   it("moves a large tester pool up to publisher", () => {
     expect(recommendPlan(usage(900, 10_000, 3)).id).toBe("publisher");
+
+    // Report volume alone never moves a studio up: it is not billable and not
+    // a boundary on any paid tier.
+    expect(recommendPlan(usage(100, 2_000_000, 2)).id).toBe("studio");
   });
 
   it("recommends the top listed plan when nothing fits outright", () => {
@@ -151,16 +167,17 @@ describe("plan recommendation", () => {
 
 describe("formatting", () => {
   it("renders whole dollars with cents", () => {
-    expect(formatUsd(29_000)).toBe("$290.00");
+    expect(formatUsd(4_900)).toBe("$49.00");
     expect(formatUsd(0)).toBe("$0.00");
   });
 
   it("groups thousands", () => {
+    expect(formatUsd(19_900)).toBe("$199.00");
     expect(formatUsd(120_000)).toBe("$1,200.00");
   });
 
   it("renders a sub-dollar overage unit", () => {
-    expect(formatUsd(120)).toBe("$1.20");
-    expect(formatUsd(60)).toBe("$0.60");
+    expect(formatUsd(15)).toBe("$0.15");
+    expect(formatUsd(8)).toBe("$0.08");
   });
 });

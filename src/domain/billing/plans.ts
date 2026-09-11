@@ -33,6 +33,17 @@
  *   cash flow there would contradict the product's own position and drag a
  *   dev tool into money transmission.
  *
+ * The anchors are deliberately low. The objection this product meets is "we
+ * have no QA budget", and the honest comparison is not against zero — it is
+ * against the developer-days currently spent reading Discord threads. Two of
+ * those cost more than a year of Studio. A price that has to be argued down
+ * from is worse than one that is obviously smaller than the alternative.
+ *
+ * Reports are unmetered on the paid tiers, which follows from the rejection
+ * above: clustering gets better with volume, so a per-report line would bill
+ * against the thing that makes the engine work. Free caps them, but as a tier
+ * boundary rather than a bill that grows quietly.
+ *
  * Amounts are in USD minor units throughout. Currency does not belong in a
  * float, and every figure shown to a studio is derived from these.
  */
@@ -45,12 +56,21 @@ export interface PlanLimits {
   readonly activeTestersPerMonth: number | null;
   readonly reportsPerMonth: number | null;
   readonly retentionMonths: number;
+  /**
+   * Whether the studio may host a build with us, which is what unlocks frame
+   * watermarking and single-use download links.
+   *
+   * Free is link-only. That reverses an earlier decision to ship watermarking
+   * on every tier, and the reason is that hosting stopped being the entry
+   * price and became the upgrade: a studio starts by pasting a URL it already
+   * distributes, with nothing of ours holding its binary, and pays when it
+   * wants the one thing a link cannot give it.
+   */
+  readonly hostedDelivery: boolean;
 }
 
 export interface Overage {
   readonly perActiveTesterCents: number;
-  /** Reports are billed in whole blocks, so the line item stays readable. */
-  readonly per10kReportsCents: number;
 }
 
 export interface Plan {
@@ -76,18 +96,19 @@ export const PLANS: readonly Plan[] = [
     annualCents: 0,
     limits: {
       activeCampaigns: 1,
-      activeTestersPerMonth: 25,
-      reportsPerMonth: 2_000,
+      activeTestersPerMonth: 50,
+      reportsPerMonth: 500,
       retentionMonths: 1,
+      hostedDelivery: false,
     },
     overage: null,
-    summary: "One campaign, a small tester group, and the full triage engine.",
+    summary:
+      "One campaign on a link you already have, and the full triage engine.",
     features: [
       "Clustering, noise scoring and the live issue board",
-      // Watermarking is in the free tier on purpose. It is the product's
-      // central promise, and a crippled version of it would teach studios
-      // the wrong thing about what they are evaluating.
-      "Forensic watermarking and NDA records",
+      "Link-only delivery — your build never reaches us",
+      "Per-tester NDA records and an access log",
+      "50 active testers, 500 reports a month",
       "30-day report retention",
       "Community support",
     ],
@@ -95,21 +116,23 @@ export const PLANS: readonly Plan[] = [
   {
     id: "studio",
     name: "Studio",
-    monthlyCents: 29_000,
-    annualCents: 29_000 * 10,
+    monthlyCents: 4_900,
+    annualCents: 4_900 * 10,
     limits: {
-      activeCampaigns: null,
-      activeTestersPerMonth: 250,
-      reportsPerMonth: 50_000,
+      activeCampaigns: 5,
+      activeTestersPerMonth: 500,
+      reportsPerMonth: null,
       retentionMonths: 12,
+      hostedDelivery: true,
     },
-    overage: { perActiveTesterCents: 120, per10kReportsCents: 800 },
+    overage: { perActiveTesterCents: 15 },
     summary: "For a studio running closed betas on a regular cycle.",
     features: [
-      "Unlimited campaigns",
-      "250 active testers included, then $1.20 each",
-      "Forensics dashboard and watermark recovery",
-      "Tamper-evident audit log",
+      "5 active campaigns",
+      "500 active testers included, then $0.15 each",
+      "Hosted builds with forensic frame watermarking",
+      "Single-use download links",
+      "Unlimited reports — volume makes the clustering better, not costlier",
       "12-month retention",
       "Email support",
     ],
@@ -117,19 +140,21 @@ export const PLANS: readonly Plan[] = [
   {
     id: "publisher",
     name: "Publisher",
-    monthlyCents: 120_000,
-    annualCents: 120_000 * 10,
+    monthlyCents: 19_900,
+    annualCents: 19_900 * 10,
     limits: {
       activeCampaigns: null,
       activeTestersPerMonth: 2_500,
-      reportsPerMonth: 500_000,
+      reportsPerMonth: null,
       retentionMonths: 24,
+      hostedDelivery: true,
     },
-    overage: { perActiveTesterCents: 60, per10kReportsCents: 500 },
+    overage: { perActiveTesterCents: 8 },
     summary:
       "Multiple titles, multiple teams, and a leak that would make news.",
     features: [
-      "2,500 active testers included, then $0.60 each",
+      "Unlimited campaigns",
+      "2,500 active testers included, then $0.08 each",
       "SSO / SAML and role separation per title",
       "Audit log export",
       "Custom NDA templates per campaign",
@@ -147,6 +172,7 @@ export const PLANS: readonly Plan[] = [
       activeTestersPerMonth: null,
       reportsPerMonth: null,
       retentionMonths: 999,
+      hostedDelivery: true,
     },
     overage: null,
     summary:
@@ -232,20 +258,18 @@ export function meter(usage: Usage, plan: Plan): readonly MeterReading[] {
 /**
  * What going over costs this period.
  *
- * Reports bill in whole 10k blocks so the invoice line stays legible; a
- * studio one report over pays for one block, not a fraction of a cent.
+ * Only active testers are billable. Reports are unmetered wherever there is
+ * an overage to charge, by the same argument that rejected per-report pricing
+ * outright: more reports make the clustering better, and billing for them
+ * would charge a studio for the product working.
  */
 export function overageCents(usage: Usage, plan: Plan): number {
   if (plan.overage === null) return 0;
 
   const readings = meter(usage, plan);
   const testersOver = readings.find((r) => r.id === "activeTesters")?.over ?? 0;
-  const reportsOver = readings.find((r) => r.id === "reports")?.over ?? 0;
 
-  return (
-    testersOver * plan.overage.perActiveTesterCents +
-    Math.ceil(reportsOver / 10_000) * plan.overage.per10kReportsCents
-  );
+  return testersOver * plan.overage.perActiveTesterCents;
 }
 
 /** Base plus overage, or null when the plan is not listed. */

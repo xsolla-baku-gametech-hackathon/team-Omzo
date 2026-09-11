@@ -4,7 +4,7 @@ import Link from "next/link";
 import { EyebrowPill } from "@/components/stage/EyebrowPill";
 import { StageHeader } from "@/components/stage/StageHeader";
 import { StageSection } from "@/components/stage/StageSection";
-import { PLANS, formatUsd } from "@/domain/billing/plans";
+import { PLANS, formatUsd, resolvePlan } from "@/domain/billing/plans";
 import type { Plan } from "@/domain/billing/plans";
 
 /**
@@ -21,7 +21,7 @@ import type { Plan } from "@/domain/billing/plans";
 export const metadata: Metadata = {
   title: "Pricing — Repro",
   description:
-    "Repro is priced per active tester: the people who take your build. Free to start, $290 a month for a studio running closed betas, self-hosted for builds that cannot leave your network.",
+    "Repro is priced per active tester: the people who take your build. Free on a link you already have, $49 a month for a studio running closed betas, self-hosted for builds that cannot leave your network.",
 };
 
 function priceLine(plan: Plan): { amount: string; qualifier: string } {
@@ -124,6 +124,8 @@ const REJECTED: ReadonlyArray<{
 ];
 
 export default function PricingPage() {
+  const freePlan = resolvePlan("free");
+
   return (
     <div className="min-h-screen bg-[var(--surface-page)] font-sans text-[var(--ink-primary)]">
       <StageHeader />
@@ -194,8 +196,9 @@ export default function PricingPage() {
             Start on the free tier
           </h2>
           <p className="mx-auto mt-[var(--space-4)] max-w-[var(--stage-hero-sub-measure)] text-[length:var(--type-body-size)] leading-[var(--type-body-lh)] text-[var(--ink-secondary)]">
-            One campaign, twenty-five testers, and the same watermarking the
-            paid tiers get. Move up when a second playtest starts, not before.
+            One campaign, {freePlan.limits.activeTestersPerMonth} testers, and a
+            link you already have — nothing of yours reaches our servers. Move
+            up when you want the build hosted and watermarked, not before.
           </p>
           <div className="mt-[var(--space-8)] flex flex-col items-center justify-center gap-[var(--space-3)] sm:flex-row">
             <Link
