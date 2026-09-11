@@ -22,6 +22,21 @@ body {
   color: var(--ink-primary);
 }
 
+@media print {
+  header {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+}
+
 /* Accessible focus ring: 2px --accent, 2px offset (UI_SPEC §5, V2 §6).
    Never removed, never replaced by a background change. */
 :focus-visible {
