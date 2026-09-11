@@ -53,6 +53,9 @@ export default async function CampaignBoardPage(props: {
       campaignName={campaign.title}
       actions={
         <>
+          <ConsoleNavLink href={`/studio/${campaignId}/rewards`}>
+            Rewards
+          </ConsoleNavLink>
           <ConsoleNavLink href={`/studio/${campaignId}/forensics`}>
             Forensics
           </ConsoleNavLink>
