@@ -5,10 +5,36 @@ import {
   PlayCampaignActions,
   type PlayCtaState,
 } from "@/components/PlayCampaignActions";
-import { canApply, canPlay } from "@/domain/campaigns/windows";
+import {
+  canApply,
+  canPlay,
+  defaultCampaignWindows,
+} from "@/domain/campaigns/windows";
 import { db } from "@/server/db";
 import { getOpenCampaigns } from "@/server/services/campaignService";
 import { getSession } from "@/server/session";
+
+function campaignWindowsOf(campaign: {
+  readonly applicationOpensAt?: Date | null;
+  readonly applicationClosesAt?: Date | null;
+  readonly testingStartsAt?: Date | null;
+  readonly testingEndsAt?: Date | null;
+}) {
+  if (
+    campaign.applicationOpensAt &&
+    campaign.applicationClosesAt &&
+    campaign.testingStartsAt &&
+    campaign.testingEndsAt
+  ) {
+    return {
+      applicationOpensAt: campaign.applicationOpensAt,
+      applicationClosesAt: campaign.applicationClosesAt,
+      testingStartsAt: campaign.testingStartsAt,
+      testingEndsAt: campaign.testingEndsAt,
+    };
+  }
+  return defaultCampaignWindows();
+}
 
 function resolveCtaState(input: {
   readonly loggedIn: boolean;
@@ -54,24 +80,25 @@ export default async function PlayIndexPage() {
   const campaigns = await getOpenCampaigns();
 
   const campaignIds = campaigns.map((c) => c.id);
-  const [applications, signatures] = session
-    ? await Promise.all([
-        db.campaignApplication.findMany({
-          where: {
-            testerId: session.sub,
-            campaignId: { in: campaignIds },
-          },
-          select: { campaignId: true, status: true },
-        }),
-        db.ndaSignature.findMany({
-          where: {
-            userId: session.sub,
-            campaignId: { in: campaignIds },
-          },
-          select: { campaignId: true },
-        }),
-      ])
-    : [[], []];
+  const [applications, signatures] =
+    session && campaignIds.length > 0
+      ? await Promise.all([
+          db.campaignApplication.findMany({
+            where: {
+              testerId: session.sub,
+              campaignId: { in: campaignIds },
+            },
+            select: { campaignId: true, status: true },
+          }),
+          db.ndaSignature.findMany({
+            where: {
+              userId: session.sub,
+              campaignId: { in: campaignIds },
+            },
+            select: { campaignId: true },
+          }),
+        ])
+      : [[], []];
 
   const appByCampaign = new Map(
     applications.map((a) => [a.campaignId, a.status]),
@@ -175,12 +202,7 @@ export default async function PlayIndexPage() {
               const studio = (
                 c as unknown as { studio?: { name: string } }
               ).studio;
-              const windows = {
-                applicationOpensAt: c.applicationOpensAt,
-                applicationClosesAt: c.applicationClosesAt,
-                testingStartsAt: c.testingStartsAt,
-                testingEndsAt: c.testingEndsAt,
-              };
+              const windows = campaignWindowsOf(c);
               const state = resolveCtaState({
                 loggedIn: Boolean(session),
                 buildKind: c.buildKind,
@@ -231,7 +253,9 @@ export default async function PlayIndexPage() {
                           {c.testFocus}
                         </p>
                       </div>
-                      {c.buildKind === "DOWNLOAD" && (
+                      {c.buildKind === "DOWNLOAD" &&
+                        c.testingStartsAt &&
+                        c.testingEndsAt && (
                         <p className="text-[11px] text-[var(--ink-tertiary)]">
                           Testing{" "}
                           {c.testingStartsAt.toLocaleDateString()} –{" "}
@@ -259,8 +283,12 @@ export default async function PlayIndexPage() {
                         campaignId={c.id}
                         buildKind={c.buildKind}
                         state={state}
-                        applicationClosesAt={c.applicationClosesAt.toISOString()}
-                        testingEndsAt={c.testingEndsAt.toISOString()}
+                        applicationClosesAt={
+                          c.applicationClosesAt?.toISOString() ?? undefined
+                        }
+                        testingEndsAt={
+                          c.testingEndsAt?.toISOString() ?? undefined
+                        }
                       />
                     </div>
                   </div>
