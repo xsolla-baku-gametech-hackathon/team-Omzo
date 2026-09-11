@@ -14,7 +14,8 @@ export type AuditAction =
   | "ISSUE_VERIFIED"
   | "REWARD_PAID"
   | "CAMPAIGN_CREATED"
-  | "CAMPAIGN_REVOKED";
+  | "CAMPAIGN_REVOKED"
+  | "SUBSCRIPTION_CHANGED";
 
 export interface AuditLogEntry {
   readonly id: string;

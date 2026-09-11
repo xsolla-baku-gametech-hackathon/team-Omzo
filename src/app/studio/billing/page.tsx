@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ConsoleNavLink, ConsoleShell } from "@/components/ConsoleShell";
+import { PlanSelector } from "@/components/PlanSelector";
 import { SignalBar } from "@/components/SignalBar";
 import {
   formatUsd,
@@ -10,7 +11,10 @@ import {
   overageCents,
   recommendPlan,
 } from "@/domain/billing/plans";
-import { getBillingSnapshot } from "@/server/services/billingService";
+import {
+  getBillingSnapshot,
+  getPlanHistory,
+} from "@/server/services/billingService";
 import { getSession } from "@/server/session";
 
 /**
@@ -36,7 +40,10 @@ export default async function BillingPage() {
     redirect("/login");
   }
 
-  const { usage, plan } = await getBillingSnapshot(session.studioId);
+  const [{ usage, plan }, history] = await Promise.all([
+    getBillingSnapshot(session.studioId),
+    getPlanHistory(session.studioId),
+  ]);
   const readings = meter(usage, plan);
   const overage = overageCents(usage, plan);
   const total = monthlyTotalCents(plan, usage);
@@ -158,6 +165,55 @@ export default async function BillingPage() {
             rate; it never blocks a report mid-playtest.
           </p>
         </section>
+
+        {/* Change plan. */}
+        <section
+          aria-labelledby="change-heading"
+          className="mt-[var(--space-8)] border-t border-[var(--line-subtle)] pt-[var(--space-6)]"
+        >
+          <h2
+            id="change-heading"
+            className="text-[length:var(--type-heading-size)] leading-[var(--type-heading-lh)] tracking-[var(--type-heading-ls)] font-[550] text-[var(--ink-primary)]"
+          >
+            Change plan
+          </h2>
+          <div className="mt-[var(--space-5)]">
+            <PlanSelector current={plan.id} />
+          </div>
+        </section>
+
+        {history.length > 0 && (
+          <section
+            aria-labelledby="history-heading"
+            className="mt-[var(--space-8)] border-t border-[var(--line-subtle)] pt-[var(--space-6)]"
+          >
+            <h2
+              id="history-heading"
+              className="text-[length:var(--type-heading-size)] leading-[var(--type-heading-lh)] tracking-[var(--type-heading-ls)] font-[550] text-[var(--ink-primary)]"
+            >
+              Plan history
+            </h2>
+            {/* Usage accrues across a period but a plan can change inside
+                one, so the current plan alone cannot rebuild an invoice. */}
+            <ul className="mt-[var(--space-4)] border-t border-[var(--line-subtle)]">
+              {history.map((event) => (
+                <li
+                  key={event.id}
+                  className="flex flex-wrap items-baseline justify-between gap-[var(--space-3)] border-b border-[var(--line-subtle)] py-[var(--space-3)] text-[length:var(--type-meta-size)]"
+                >
+                  <span className="text-[var(--ink-secondary)]">
+                    {event.fromPlanId === null
+                      ? `Started on ${event.toPlanId}`
+                      : `${event.fromPlanId} to ${event.toPlanId}`}
+                  </span>
+                  <span className="tabular-nums text-[var(--ink-tertiary)]">
+                    {PERIOD_FORMAT.format(event.createdAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* Only shown when it is actually true. */}
         {shouldMove && (

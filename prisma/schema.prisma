@@ -49,6 +49,43 @@ model Studio {
   ownerId   String     @unique
   owner     User       @relation(fields: [ownerId], references: [id])
   campaigns Campaign[]
+
+  subscription       Subscription?
+  subscriptionEvents SubscriptionEvent[]
+}
+
+/// The plan a studio is on. One row per studio; absence means the free tier,
+/// so a studio that never touched billing needs no row at all.
+model Subscription {
+  id        String   @id @default(cuid())
+  studioId  String   @unique
+  studio    Studio   @relation(fields: [studioId], references: [id])
+  /// Matches PlanId in src/domain/billing/plans.ts. Deliberately a string
+  /// rather than an enum: the catalogue is domain logic that changes with
+  /// pricing, and a migration per price experiment is the wrong coupling.
+  planId    String
+  startedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Every plan change, kept for as long as the studio exists.
+///
+/// Usage accrues over a period but a plan can change inside one, so an
+/// invoice cannot be reconstructed from the current plan alone. This is the
+/// record that answers "what were they on when this usage accrued", and it
+/// is append-only for the same reason a ledger is.
+model SubscriptionEvent {
+  id         String   @id @default(cuid())
+  studioId   String
+  studio     Studio   @relation(fields: [studioId], references: [id])
+  /// null on the first move off the implicit free tier.
+  fromPlanId String?
+  toPlanId   String
+  /// The user who made the change, not the studio, so it is attributable.
+  actorId    String
+  createdAt  DateTime @default(now())
+
+  @@index([studioId, createdAt])
 }
 
 model Campaign {
