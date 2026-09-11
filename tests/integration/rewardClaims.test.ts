@@ -248,6 +248,83 @@ describe("a balance cannot go negative", () => {
   });
 });
 
+describe("coins are spent with the campaign that paid them", () => {
+  it("will not fund one studio's shelf from another studio's playtest", async () => {
+    // The tester is rich overall and broke here. Spending across campaigns
+    // would mean this studio handing out a key for work done for another,
+    // which points the economy at the wrong studio.
+    const otherCampaignId = `rc-other-campaign-${suffix}`;
+    await db.campaign.create({
+      data: {
+        id: otherCampaignId,
+        studioId: STUDIO_ID,
+        title: "Another campaign",
+        pitch: "-",
+        testFocus: "-",
+        buildKind: "EXTERNAL_LINK",
+        buildUrl: "https://example.test/other",
+        ndaBodyMd: "-",
+      },
+    });
+
+    const richElsewhere = `rc-rich-${suffix}`;
+    await db.user.create({
+      data: {
+        id: richElsewhere,
+        email: `${richElsewhere}@example.test`,
+        passwordHash: "x",
+        displayName: "Rich Elsewhere",
+        role: "TESTER",
+      },
+    });
+    await db.ndaSignature.create({
+      data: {
+        userId: richElsewhere,
+        campaignId: CAMPAIGN_ID,
+        typedName: "Rich Elsewhere",
+        ndaBodyHash: "-",
+        ipHash: "-",
+        userAgent: "-",
+      },
+    });
+    // 5,000 coins — all of them earned somewhere else.
+    await db.ledgerEntry.create({
+      data: {
+        userId: richElsewhere,
+        campaignId: otherCampaignId,
+        amount: 5_000,
+        reason: "ISSUE_VERIFIED",
+        idempotencyKey: `rc-rich-grant-${suffix}`,
+      },
+    });
+
+    const itemId = await makeItem({ costCoins: 100, totalStock: 5 });
+    await expect(
+      claimReward({ userId: richElsewhere, rewardItemId: itemId }),
+    ).rejects.toMatchObject({ reason: "insufficient_balance" });
+
+    // Give them a hundred here and the same claim goes through.
+    await db.ledgerEntry.create({
+      data: {
+        userId: richElsewhere,
+        campaignId: CAMPAIGN_ID,
+        amount: 100,
+        reason: "ISSUE_VERIFIED",
+        idempotencyKey: `rc-rich-local-${suffix}`,
+      },
+    });
+    await expect(
+      claimReward({ userId: richElsewhere, rewardItemId: itemId }),
+    ).resolves.toMatchObject({ claimed: true, spent: 100, balanceAfter: 0 });
+
+    await db.rewardClaim.deleteMany({ where: { userId: richElsewhere } });
+    await db.ledgerEntry.deleteMany({ where: { userId: richElsewhere } });
+    await db.campaign.deleteMany({ where: { id: otherCampaignId } });
+    await db.ndaSignature.deleteMany({ where: { userId: richElsewhere } });
+    await db.user.deleteMany({ where: { id: richElsewhere } });
+  });
+});
+
 describe("participation", () => {
   it("hides a shelf from someone who never joined the campaign", async () => {
     const itemId = await makeItem({ costCoins: 10, totalStock: 5 });
@@ -261,19 +338,9 @@ describe("participation", () => {
         role: "TESTER",
       },
     });
-    await db.ledgerEntry.create({
-      data: {
-        userId: stranger,
-        campaignId: CAMPAIGN_ID,
-        amount: 1_000,
-        reason: "MANUAL_ADJUSTMENT",
-        idempotencyKey: `rc-stranger-grant-${suffix}`,
-      },
-    });
-
-    // Rich enough, and still refused: coins are earned across campaigns but a
-    // shelf belongs to one studio. Not found rather than forbidden, so an id
-    // is not confirmed to someone who should not know it exists.
+    // No signature here and no ledger row here: nothing ties them to this
+    // campaign at all. Not found rather than forbidden, so the id is not
+    // confirmed to someone who should not know it exists.
     await expect(
       claimReward({ userId: stranger, rewardItemId: itemId }),
     ).rejects.toBeInstanceOf(RewardItemNotFoundError);

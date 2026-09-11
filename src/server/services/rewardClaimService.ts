@@ -21,6 +21,14 @@ import { getStudioCampaign } from "@/server/services/campaignService";
  * mechanism — so the idempotency guarantee that covers a payout covers a
  * redemption too, and a balance stays the sum of its rows.
  *
+ * Coins are spent **against the campaign that paid them**. Every ledger row
+ * already carries a campaignId, so this is the balance that was always there;
+ * the global sum is a convenience for the tester, not the thing a claim draws
+ * on. Spending across campaigns would mean studio B handing out a Steam key
+ * for work a tester did for studio A — B funded a pool and A's playtest spent
+ * it. That is not a rounding error in the economy, it is the economy pointing
+ * at the wrong studio.
+ *
  * Two races have to be closed, and they are different races:
  *
  * 1. The same tester claiming the same item twice. Closed twice over: the
@@ -109,20 +117,24 @@ export async function claimReward(input: {
       });
       if (item === null) throw new RewardItemNotFoundError();
 
-      const signed = await tx.ndaSignature.findUnique({
-        where: {
-          userId_campaignId: {
-            userId: input.userId,
-            campaignId: item.campaignId,
+      const [signed, earned, balanceRow, existing] = await Promise.all([
+        tx.ndaSignature.findUnique({
+          where: {
+            userId_campaignId: {
+              userId: input.userId,
+              campaignId: item.campaignId,
+            },
           },
-        },
-        select: { id: true },
-      });
-      if (signed === null) throw new RewardItemNotFoundError();
-
-      const [balanceRow, existing] = await Promise.all([
+          select: { id: true },
+        }),
+        tx.ledgerEntry.findFirst({
+          where: { userId: input.userId, campaignId: item.campaignId },
+          select: { id: true },
+        }),
         tx.ledgerEntry.aggregate({
-          where: { userId: input.userId },
+          // Scoped to the campaign that owns this shelf, not the tester's
+          // whole balance.
+          where: { userId: input.userId, campaignId: item.campaignId },
           _sum: { amount: true },
         }),
         tx.rewardClaim.findUnique({
@@ -130,6 +142,13 @@ export async function claimReward(input: {
           select: { id: true },
         }),
       ]);
+
+      // Either record counts as having been part of this campaign: a tester
+      // who signed and has not earned yet belongs here, and so does one whose
+      // signature predates a schema that did not record it.
+      if (signed === null && earned === null) {
+        throw new RewardItemNotFoundError();
+      }
 
       const balance = balanceRow._sum.amount ?? 0;
 
@@ -198,8 +217,12 @@ export async function claimReward(input: {
         where: { idempotencyKey },
         select: { id: true },
       });
+      const item = await db.rewardItem.findUnique({
+        where: { id: input.rewardItemId },
+        select: { campaignId: true },
+      });
       const balance = await db.ledgerEntry.aggregate({
-        where: { userId: input.userId },
+        where: { userId: input.userId, campaignId: item?.campaignId },
         _sum: { amount: true },
       });
       return {
@@ -216,6 +239,8 @@ export async function claimReward(input: {
 export interface ShelfEntry extends RewardItemView {
   readonly campaignId: string;
   readonly campaignTitle: string;
+  /** What this tester has left with *this* campaign, which is what pays. */
+  readonly campaignBalance: number;
   readonly remaining: number;
   readonly verdict: ClaimVerdict;
   readonly claim: {
@@ -227,28 +252,45 @@ export interface ShelfEntry extends RewardItemView {
 }
 
 /**
- * What this tester's balance can reach, across the campaigns they joined.
+ * What this tester can reach, campaign by campaign.
  *
- * Scoped by NDA signature rather than by ledger entries: a tester who signed
- * up and has not earned anything yet should still see what there is to earn.
+ * Each row's verdict is computed from the balance that will actually pay for
+ * it — the campaign's, not the tester's total. A shelf that offers a "Claim"
+ * button the server then refuses is worse than one that says why up front,
+ * and 900 coins spread across three campaigns buys nothing priced at 800.
  */
 export async function getShelfFor(userId: string): Promise<{
   readonly balance: number;
   readonly entries: readonly ShelfEntry[];
 }> {
-  const [signatures, balanceRow] = await Promise.all([
+  const [signatures, byCampaign] = await Promise.all([
     db.ndaSignature.findMany({
       where: { userId },
       select: { campaignId: true },
     }),
-    db.ledgerEntry.aggregate({
+    db.ledgerEntry.groupBy({
+      by: ["campaignId"],
       where: { userId },
       _sum: { amount: true },
     }),
   ]);
 
-  const campaignIds = signatures.map((signature) => signature.campaignId);
-  const balance = balanceRow._sum.amount ?? 0;
+  const campaignBalance = new Map(
+    byCampaign.map((row) => [row.campaignId, row._sum.amount ?? 0]),
+  );
+  const balance = [...campaignBalance.values()].reduce(
+    (total, amount) => total + amount,
+    0,
+  );
+
+  // Signed up, or earned something here. Either counts as having been part
+  // of the campaign.
+  const campaignIds = [
+    ...new Set([
+      ...signatures.map((signature) => signature.campaignId),
+      ...campaignBalance.keys(),
+    ]),
+  ];
   if (campaignIds.length === 0) return { balance, entries: [] };
 
   const [items, claims] = await Promise.all([
@@ -267,13 +309,15 @@ export async function getShelfFor(userId: string): Promise<{
     entries: items.map((item) => {
       const claim = byItem.get(item.id) ?? null;
       const view = viewOf(item);
+      const available = campaignBalance.get(item.campaignId) ?? 0;
       return {
         ...view,
         campaignId: item.campaignId,
         campaignTitle: item.campaign.title,
+        campaignBalance: available,
         remaining: remainingStock(view),
         verdict: canClaim({
-          balance,
+          balance: available,
           item: view,
           alreadyClaimed: claim !== null,
         }),

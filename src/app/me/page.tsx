@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { RewardShelf } from "@/components/RewardShelf";
+import { getShelfFor } from "@/server/services/rewardClaimService";
 import { getTesterSummary } from "@/server/services/rewardService";
 import { getSession } from "@/server/session";
 
@@ -8,6 +10,8 @@ const REASON_LABEL: Record<string, string> = {
   ISSUE_VERIFIED: "Issue verified",
   FIRST_REPORTER_BONUS: "First to report",
   MANUAL_ADJUSTMENT: "Adjustment",
+  REWARD_CLAIMED: "Reward claimed",
+  CLAIM_REFUNDED: "Claim refunded",
 };
 
 function formatDate(date: Date): string {
@@ -18,7 +22,10 @@ export default async function MePage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const summary = await getTesterSummary(session.sub);
+  const [summary, shelf] = await Promise.all([
+    getTesterSummary(session.sub),
+    getShelfFor(session.sub),
+  ]);
 
   return (
     <div className="min-h-screen bg-[var(--surface-page)] text-[var(--ink-primary)] font-sans">
@@ -31,10 +38,7 @@ export default async function MePage() {
             >
               Repro
             </Link>
-            <span
-              aria-hidden="true"
-              className="text-[var(--line-subtle)]"
-            >
+            <span aria-hidden="true" className="text-[var(--line-subtle)]">
               /
             </span>
             <span className="text-xs text-[var(--ink-secondary)]">
@@ -59,7 +63,7 @@ export default async function MePage() {
               {summary.balance}
             </div>
             <p className="text-[13px] text-[var(--ink-secondary)] mt-1">
-              coins earned
+              coins in total
             </p>
           </div>
           <div className="p-4 bg-[var(--surface-raised)] border border-[var(--line-subtle)] rounded-[var(--radius-md)]">
@@ -96,6 +100,37 @@ export default async function MePage() {
             for now. It recovers as the issues you report get verified.
           </p>
         )}
+
+        <section aria-labelledby="shelf-heading" className="space-y-3 pt-4">
+          <h2
+            id="shelf-heading"
+            className="text-[16px] font-semibold text-[var(--ink-primary)]"
+          >
+            What your balance can reach
+          </h2>
+          <p className="max-w-[68ch] text-[13px] leading-[1.6] text-[var(--ink-secondary)]">
+            Each studio stocks its own shelf, and you spend with the campaign
+            that paid you — a key from one studio is not funded by another
+            studio&rsquo;s playtest. Claiming debits the same ledger that paid
+            you, and the studio sends the code by hand.
+          </p>
+          <RewardShelf
+            rows={shelf.entries.map((entry) => ({
+              id: entry.id,
+              kind: entry.kind,
+              label: entry.label,
+              costCoins: entry.costCoins,
+              remaining: entry.remaining,
+              campaignTitle: entry.campaignTitle,
+              campaignBalance: entry.campaignBalance,
+              refusal: entry.verdict.allowed ? null : entry.verdict.reason,
+              claim:
+                entry.claim === null
+                  ? null
+                  : { status: entry.claim.status, code: entry.claim.code },
+            }))}
+          />
+        </section>
 
         <section aria-labelledby="earnings-heading" className="space-y-3 pt-4">
           <h2

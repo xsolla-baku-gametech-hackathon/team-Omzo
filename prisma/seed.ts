@@ -98,6 +98,63 @@ async function seedAccounts(passwordHash: string): Promise<void> {
       maxTesters: 200,
     },
   });
+
+  await seedRewardShelf();
+}
+
+/**
+ * What the demo campaign's coins are worth.
+ *
+ * Ordered by what each costs the studio, cheapest first — which is also the
+ * order a studio should stock them in. A credits mention costs nothing and is
+ * worth something real to a tester; that asymmetry is the whole reason the
+ * economy works without anyone buying coins.
+ */
+async function seedRewardShelf(): Promise<void> {
+  const shelf = [
+    {
+      id: "seed-reward-credits",
+      kind: "CREDITS_MENTION" as const,
+      label: "Your name in the credits",
+      costCoins: 150,
+      totalStock: 50,
+    },
+    {
+      id: "seed-reward-early",
+      kind: "EARLY_ACCESS" as const,
+      label: "First pick on the next playtest",
+      costCoins: 250,
+      totalStock: 25,
+    },
+    {
+      id: "seed-reward-item",
+      kind: "ITEM_CODE" as const,
+      label: "Vault Descent — prototype skin code",
+      costCoins: 400,
+      totalStock: 15,
+    },
+    {
+      id: "seed-reward-key",
+      kind: "STEAM_KEY" as const,
+      label: "Steam key — Vault Descent, on release",
+      costCoins: 800,
+      // Deliberately scarce. A shelf where everything is always available
+      // never exercises the out-of-stock path the demo is meant to show.
+      totalStock: 3,
+    },
+  ];
+
+  for (const item of shelf) {
+    await db.rewardItem.upsert({
+      where: { id: item.id },
+      update: {
+        label: item.label,
+        costCoins: item.costCoins,
+        totalStock: item.totalStock,
+      },
+      create: { ...item, campaignId: CAMPAIGN_ID },
+    });
+  }
 }
 
 async function seedTesters(
