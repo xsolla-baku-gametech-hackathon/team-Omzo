@@ -245,6 +245,117 @@ chain that used to carry a client-supplied reporter id, removed end to end.
 
 ---
 
+## 3A. Delivery modes and pricing (BUSINESS.md §1, §3)
+
+### The objection this closes
+
+A four-person team will not upload an unreleased build to a platform that
+launched last weekend, and it is right not to. The product asked for exactly
+that on step one: the campaign form preselected `WEB_EMBED`. The value Repro
+adds is triage, and triage does not require us to hold the binary — so the
+default is now a link the studio already distributes.
+
+### What was actually broken
+
+Three things, none of which BUSINESS.md anticipated.
+
+**The product lied about watermarking.** The play session surface rendered
+`WatermarkedFrame` and printed "Watermark active" for every campaign with no
+branch on build kind, and the campaign form's preview card promised "16-bit
+Forensic Watermark" the same way. So an external-link campaign — the one mode
+where there is no frame of ours to write into — told both tester and studio
+their session was watermarked. The worst possible direction for that claim to
+point: the studio being misled is the careful one, the one that chose to keep
+its binary.
+
+**Link-only delivery did not exist.** `buildUrl` was returned by the validate
+endpoint, held in the session page's type, and used nowhere. The feature was a
+URL we emailed and forgot about.
+
+**"Who accessed what and when" had no answer.** `AccessGrant` is one row per
+tester per campaign for life, rewritten in place on re-issuance, so it knew
+when someone last asked and nothing about any time before.
+
+Plus one latent hole found on the way: `buildUrl` was validated as "a string
+between 1 and 500 characters". Turning it into a redirect target would have
+made that an open redirect on our own origin, and `javascript:`/`data:` values
+would have been live script if the value ever reached an anchor.
+
+### Decisions worth defending
+
+**Delivery mode is derived, not stored.** BUSINESS.md proposed a
+`DeliveryMode` enum beside the existing `buildKind`. Two stored columns
+answering overlapping questions can disagree — nothing stops `WEB_EMBED` being
+written next to `LINK_ONLY` — and whichever one the capability check happened
+to read would decide whether a build claims protection it does not have. That
+is a security claim resolved by a coin flip. A function cannot drift from its
+own input, and it needed no migration.
+
+**Single use now means single delivery.** Validating a token to render a page
+used to spend a `DOWNLOAD` grant, so the tester clicked through to an
+already-consumed link. Only the route that hands over the build consumes now.
+
+**Denials are recorded, not just grants.** A run of `DENIED_UA_MISMATCH`
+against one grant is a link being passed around — the signal a studio wants
+before the build is on a torrent site, not after. A token that never parsed
+records nothing: there is no campaign to file it under, and guessing one would
+put a fabricated row in an audit trail.
+
+**The access log fails open.** A failed audit write does not deny a tester the
+build. This log is evidence, not an authorisation gate; the decision comes out
+the same whether or not the row lands, and failing closed would trade a certain
+harm — every tester locked out while the table is unavailable — for a
+speculative one.
+
+### Pricing
+
+Studio moved from $290 to $49 and Publisher from $1,200 to $199. The old
+anchors were derived from what the metering could bear rather than from the
+objection the product meets, which is "we have no QA budget". The comparison a
+studio makes is not $49 against nothing; it is $49 against the two developer-
+days per cycle spent reading Discord. At $290 that argument has to be won. At
+$49 it only has to be stated.
+
+Reports became unmetered on every paid tier. The module had already rejected
+per-report pricing in its own reasoning — clustering gets better with volume —
+and then metered them anyway.
+
+Free dropped to link-only, reversing an earlier decision to ship watermarking
+on every tier. That decision was right when hosting was the entry price and
+wrong once hosting became the upgrade. The reversal is recorded in the type,
+not left to be rediscovered.
+
+No per-campaign one-off tier, which BUSINESS.md proposed. It cannot be
+expressed as a subscription without lying to the `Subscription` row behind it,
+and a monthly plan a studio can cancel already serves the team that ships twice
+a year.
+
+Limits are now enforced where the campaign is created rather than reported
+afterwards on a dashboard — `402`, because nothing is forbidden to the studio,
+its plan simply does not cover what was asked for.
+
+### Verified live
+
+| Probe                                             | Result                                                                                |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Correct browser on a link-only grant              | `302` to the studio's URL, `Cache-Control: no-store`                                  |
+| Different browser, twice                          | `403` both times, two `DENIED_UA_MISMATCH` rows under the _attempting_ browser's hash |
+| Garbage token                                     | `401`, no row written                                                                 |
+| Internal path as `buildUrl`                       | `302` to the resolved absolute URL                                                    |
+| `javascript:` / `//host` / plain `http` on create | `422` each, with its own reason                                                       |
+| Hosted campaign on the free plan                  | `402 hosted_delivery_not_in_plan`                                                     |
+| Second campaign on the free plan                  | `402 campaign_limit_reached`, "1 active campaign"                                     |
+| Same two on Studio                                | `201`                                                                                 |
+
+### Where BUSINESS.md was wrong about this repo
+
+§1 says to extend `CampaignTarget` from `PLATFORM_TARGETING.md`. Neither
+exists here. The capability matrix in the README is therefore delivery mode ×
+capability rather than delivery mode × platform, and `tests/delivery.test.ts`
+fails if the README copy drifts from the code.
+
+---
+
 ## 4. Known limitations
 
 Stated because a judge will find them, and because a list of strengths with no
@@ -264,7 +375,15 @@ limits is telling half of something.
   that the route authenticates via bearer token rather than ambient cookies —
   this is the standard public-API shape — but it is a deliberate choice, not an
   oversight.
-- **The commit count is 30, not the 350 originally targeted.** Every commit here
+- **`SELF_HOSTED` delivery is a type member, not a feature.** It appears in the
+  capability table so the roadmap can be stated honestly; `deliveryModeOf`
+  never returns it and there is no code path that serves it.
+- **Link-only cannot watermark or prevent forwarding, and says so.** That is
+  the deal the mode makes, stated on the campaign form next to the choice. The
+  "prevents forwarding" row is `no` in _every_ mode, including hosted, and a
+  test keeps it that way.
+- **No payment rails.** A plan change records an intent. Nothing is charged.
+- **The commit count is 41, not the 350 originally targeted.** Every commit here
   is a real, verified change; several were validated against a running server
   before being written. Reaching 350 in one night would have required splitting
   work into fragments too small to verify, and the instruction that no commit be
