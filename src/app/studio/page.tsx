@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { EmptyPanel } from "@/components/EmptyPanel";
 import { getStudioCampaigns } from "@/server/services/campaignService";
 import { getSession } from "@/server/session";
 
@@ -14,23 +15,22 @@ export default async function StudioDashboardPage() {
 
   return (
     <div className="min-h-screen bg-[var(--surface-page)] text-[var(--ink-primary)] font-sans">
-      {/* Header */}
-      <header className="border-b border-[var(--line-subtle)] bg-[var(--surface-raised)] px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <header className="border-b border-[var(--line-subtle)] bg-[var(--surface-raised)]/90 px-6 py-4 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
               href="/"
-              className="font-semibold text-lg tracking-tight text-[var(--ink-primary)]"
+              className="text-lg font-semibold tracking-tight text-[var(--ink-primary)]"
             >
               Repro
             </Link>
             <span className="text-[var(--line-subtle)]">/</span>
             <span className="text-sm font-medium text-[var(--ink-secondary)]">
-              Studio Dashboard
+              Studio
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-xs text-[var(--ink-secondary)] hidden sm:inline">
+            <span className="hidden text-xs text-[var(--ink-secondary)] sm:inline">
               {session.displayName}
             </span>
             <Link
@@ -41,46 +41,47 @@ export default async function StudioDashboardPage() {
             </Link>
             <Link
               href="/studio/new"
-              className="py-1.5 px-3 bg-[var(--accent)] text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)] text-xs font-medium rounded-[var(--radius-sm)] transition-opacity"
+              className="rounded-full bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)]"
             >
-              + New Campaign
+              + New campaign
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="max-w-6xl mx-auto px-6 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-[var(--ink-primary)]">
-              Campaigns
-            </h1>
-            <p className="text-sm text-[var(--ink-secondary)] mt-1">
-              Active and archived technical playtests.
-            </p>
-          </div>
+      <main className="relative mx-auto max-w-6xl px-6 py-8">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full opacity-50 blur-3xl"
+          style={{ background: "var(--accent-wash)" }}
+        />
+
+        <div className="relative mb-8">
+          <h1 className="text-2xl font-semibold tracking-[-0.03em] text-[var(--ink-primary)]">
+            Campaigns
+          </h1>
+          <p className="mt-1 text-sm text-[var(--ink-secondary)]">
+            Active and archived technical playtests.
+          </p>
         </div>
 
         {campaigns.length === 0 ? (
-          <div className="border border-dashed border-[var(--line-subtle)] p-12 text-center rounded-[var(--radius-md)] bg-[var(--surface-sunken)]">
-            <h3 className="text-base font-medium text-[var(--ink-primary)]">
-              No campaigns created yet
-            </h3>
-            <p className="text-sm text-[var(--ink-secondary)] mt-1 max-w-sm mx-auto">
-              Create your first campaign to distribute your build to testers and
-              start collecting triaged reports.
-            </p>
-            <Link
-              href="/studio/new"
-              className="inline-block mt-4 py-2 px-4 bg-[var(--accent)] text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)] text-xs font-medium rounded-[var(--radius-sm)]"
-            >
-              Create Campaign
-            </Link>
-          </div>
+          <EmptyPanel
+            visual="campaigns"
+            title="No campaigns yet"
+            description="Create your first campaign to distribute a build, collect reports, and collapse them into issues your team can fix."
+            action={
+              <Link
+                href="/studio/new"
+                className="inline-flex rounded-full bg-[var(--accent)] px-5 py-2.5 text-[13px] font-semibold text-[var(--accent-on-fill)] shadow-[0_8px_24px_var(--accent-glow)] hover:bg-[var(--accent-hover)]"
+              >
+                Create campaign
+              </Link>
+            }
+          />
         ) : (
           <div className="grid gap-4">
-            {campaigns.map((c) => {
+            {campaigns.map((c, index) => {
               const counts = (
                 c as unknown as {
                   _count?: {
@@ -93,74 +94,68 @@ export default async function StudioDashboardPage() {
               const isRevoked = c.revokedAt !== null;
 
               return (
-                <div
+                <article
                   key={c.id}
-                  className="border border-[var(--line-subtle)] bg-[var(--surface-raised)] p-6 rounded-[var(--radius-md)] flex flex-col md:flex-row md:items-center md:justify-between gap-4 hover:border-[var(--line-strong)] transition-colors shadow-xs"
+                  className="group relative overflow-hidden rounded-[22px] border border-[var(--line-subtle)] bg-[var(--surface-raised)] p-6 shadow-[0_12px_40px_rgba(0,0,0,0.16)] transition duration-300 hover:-translate-y-0.5 hover:border-[var(--line-strong)]"
+                  style={{
+                    animation: `empty-panel-in 480ms cubic-bezier(0.22,1,0.36,1) ${index * 70}ms both`,
+                  }}
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-semibold text-[var(--ink-primary)]">
-                        {c.title}
-                      </h2>
-                      {isRevoked ? (
-                        <span className="text-[11px] px-2 py-0.5 bg-[var(--sev-critical-wash)] text-[var(--sev-critical)] font-medium rounded-[var(--radius-sm)]">
-                          Revoked
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0 space-y-1.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-base font-semibold text-[var(--ink-primary)]">
+                          {c.title}
+                        </h2>
+                        {isRevoked ? (
+                          <span className="rounded-full bg-[var(--sev-critical-wash)] px-2 py-0.5 text-[11px] font-medium text-[var(--sev-critical)]">
+                            Revoked
+                          </span>
+                        ) : c.status === "OPEN" ? (
+                          <span className="rounded-full bg-[var(--accent-wash)] px-2 py-0.5 text-[11px] font-medium text-[var(--accent-text)]">
+                            Open
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-[var(--surface-sunken)] px-2 py-0.5 text-[11px] font-medium text-[var(--ink-secondary)]">
+                            {c.status}
+                          </span>
+                        )}
+                      </div>
+                      <p className="max-w-xl text-xs text-[var(--ink-secondary)] line-clamp-2">
+                        {c.pitch}
+                      </p>
+                      <p className="pt-1 text-xs text-[var(--ink-secondary)]">
+                        Focus:{" "}
+                        <span className="text-[var(--ink-primary)]">
+                          {c.testFocus}
                         </span>
-                      ) : c.status === "OPEN" ? (
-                        <span className="text-[11px] px-2 py-0.5 bg-[var(--accent-wash)] text-[var(--accent)] font-medium rounded-[var(--radius-sm)]">
-                          Open
-                        </span>
-                      ) : (
-                        <span className="text-[11px] px-2 py-0.5 bg-[var(--surface-sunken)] text-[var(--ink-secondary)] font-medium rounded-[var(--radius-sm)]">
-                          {c.status}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-[var(--ink-secondary)] max-w-xl line-clamp-2">
-                      {c.pitch}
-                    </p>
-                    <div className="text-xs text-[var(--ink-secondary)] pt-1">
-                      Focus:{" "}
-                      <span className="text-[var(--ink-primary)]">
-                        {c.testFocus}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-6 border-t md:border-t-0 border-[var(--line-subtle)] pt-4 md:pt-0">
-                    <div className="text-center">
-                      <div className="text-xl font-semibold tracking-tight font-mono text-[var(--ink-primary)]">
-                        {counts?.issues ?? 0}
-                      </div>
-                      <div className="text-[11px] uppercase tracking-wider text-[var(--ink-secondary)]">
-                        Issues
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-semibold tracking-tight text-[var(--ink-secondary)] font-mono">
-                        {counts?.reports ?? 0}
-                      </div>
-                      <div className="text-[11px] uppercase tracking-wider text-[var(--ink-secondary)]">
-                        Reports
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-semibold tracking-tight text-[var(--ink-secondary)] font-mono">
-                        {counts?.accessGrants ?? 0}
-                      </div>
-                      <div className="text-[11px] uppercase tracking-wider text-[var(--ink-secondary)]">
-                        Testers
-                      </div>
+                      </p>
                     </div>
 
-                    <Link
-                      href={`/studio/${c.id}`}
-                      className="py-2 px-3 border border-[var(--line-subtle)] hover:border-[var(--line-strong)] text-xs font-medium rounded-[var(--radius-sm)] transition-colors"
-                    >
-                      View Board
-                    </Link>
+                    <div className="flex items-center gap-5 border-t border-[var(--line-subtle)] pt-4 md:border-t-0 md:pt-0">
+                      {[
+                        ["Issues", counts?.issues ?? 0],
+                        ["Reports", counts?.reports ?? 0],
+                        ["Testers", counts?.accessGrants ?? 0],
+                      ].map(([label, value]) => (
+                        <div key={label as string} className="text-center">
+                          <div className="font-mono text-xl font-semibold tabular-nums text-[var(--ink-primary)]">
+                            {value as number}
+                          </div>
+                          <div className="text-[10px] uppercase tracking-wider text-[var(--ink-secondary)]">
+                            {label as string}
+                          </div>
+                        </div>
+                      ))}
+                      <Link
+                        href={`/studio/${c.id}`}
+                        className="rounded-full border border-[var(--line-medium)] px-3 py-2 text-xs font-semibold transition hover:bg-[var(--surface-overlay)]"
+                      >
+                        View board
+                      </Link>
+                    </div>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>

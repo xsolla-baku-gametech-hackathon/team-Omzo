@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { EmptyPanel } from "@/components/EmptyPanel";
 import { MeStats } from "@/components/MeStats";
 import { RewardShelf } from "@/components/RewardShelf";
 import { getShelfFor } from "@/server/services/rewardClaimService";
@@ -120,10 +121,19 @@ export default async function MePage() {
             Earnings
           </h2>
           {summary.entries.length === 0 ? (
-            <p className="text-[13px] text-[var(--ink-secondary)]">
-              Nothing yet. You are rewarded when a studio verifies an issue you
-              were the first to report.
-            </p>
+            <EmptyPanel
+              visual="radar"
+              title="No earnings yet"
+              description="You are rewarded when a studio verifies an issue you were the first to report. Open a playtest and file something real."
+              action={
+                <Link
+                  href="/play"
+                  className="inline-flex rounded-full bg-[var(--accent)] px-4 py-2 text-[13px] font-semibold text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)]"
+                >
+                  Browse playtests
+                </Link>
+              }
+            />
           ) : (
             <ul className="divide-y divide-[var(--line-subtle)] border-t border-[var(--line-subtle)]">
               {summary.entries.map((entry) => (

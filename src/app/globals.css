@@ -37,6 +37,83 @@ body {
   }
 }
 
+@keyframes empty-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes empty-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes empty-shimmer {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes empty-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes empty-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes empty-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-panel-motion,
+  [style*="empty-panel-in"],
+  [style*="empty-row-in"],
+  [style*="empty-shimmer"],
+  [style*="empty-pulse"],
+  [style*="empty-float"],
+  [style*="empty-ring"] {
+    animation: none !important;
+  }
+}
+
 /* Accessible focus ring: 2px --accent, 2px offset (UI_SPEC §5, V2 §6).
    Never removed, never replaced by a background change. */
 :focus-visible {

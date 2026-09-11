@@ -311,6 +311,7 @@ export function IssueBoard({
             <EmptyState
               title="No reports yet"
               description="Share the campaign access link with testers, or play the session yourself to file the first issue."
+              visual="radar"
               action={
                 <Button variant="primary" onClick={copyCampaignLink}>
                   {copiedLink ? "Link copied" : "Copy campaign link"}
