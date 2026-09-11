@@ -2,8 +2,10 @@ import { compare, hash } from "bcryptjs";
 
 import {
   validateAdultAge,
+  validateContactHandle,
   validateLegalName,
 } from "@/domain/access/identityRules";
+import { validateIdPhoto } from "@/domain/access/idPhoto";
 import { validatePasswordStrength } from "@/domain/access/passwordRules";
 import { db } from "@/server/db";
 import type { SessionPayload } from "@/server/session";
@@ -28,6 +30,10 @@ export interface RegisterInput {
   readonly role: "TESTER" | "STUDIO";
   readonly birthDate: Date;
   readonly studioName?: string;
+  /** Required for TESTER: a Discord or Telegram handle, so a studio can reach them. */
+  readonly contactHandle?: string;
+  /** Required for TESTER: a photo of ID, for age/identity verification. */
+  readonly idPhoto?: Uint8Array;
 }
 
 export interface LoginInput {
@@ -77,6 +83,20 @@ export class UnderageRegistrationError extends Error {
   }
 }
 
+export class InvalidContactHandleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidContactHandleError";
+  }
+}
+
+export class InvalidIdPhotoError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidIdPhotoError";
+  }
+}
+
 export async function registerUser(
   input: RegisterInput,
 ): Promise<SessionPayload> {
@@ -115,6 +135,31 @@ export async function registerUser(
     throw new WeakPasswordError(strength.errors);
   }
 
+  let contactHandle: string | undefined;
+  let idPhoto: Uint8Array<ArrayBuffer> | undefined;
+  let idPhotoMimeType: string | undefined;
+
+  if (input.role === "TESTER") {
+    const handleCheck = validateContactHandle(input.contactHandle ?? "");
+    if (!handleCheck.valid) {
+      throw new InvalidContactHandleError(
+        handleCheck.reason ?? "A Discord or Telegram handle is required.",
+      );
+    }
+    contactHandle = (input.contactHandle ?? "").trim();
+
+    const photoCheck = validateIdPhoto(input.idPhoto ?? new Uint8Array());
+    if (!photoCheck.valid) {
+      throw new InvalidIdPhotoError(
+        photoCheck.reason ?? "Attach a photo of your ID.",
+      );
+    }
+    const source = input.idPhoto ?? new Uint8Array();
+    idPhoto = new Uint8Array(new ArrayBuffer(source.length));
+    idPhoto.set(source);
+    idPhotoMimeType = photoCheck.mimeType;
+  }
+
   const passwordHash = await hash(input.password, BCRYPT_COST);
 
   return db.$transaction(async (tx) => {
@@ -125,6 +170,9 @@ export async function registerUser(
         displayName,
         role: input.role,
         birthDate: input.birthDate,
+        contactHandle,
+        idPhoto,
+        idPhotoMimeType,
       },
     });
 
