@@ -8,13 +8,18 @@ import {
 } from "@/domain/access/identityRules";
 import {
   EmailAlreadyExistsError,
+  InvalidContactHandleError,
   InvalidDisplayNameError,
+  InvalidIdPhotoError,
   StudioNameRequiredError,
   UnderageRegistrationError,
   WeakPasswordError,
   registerUser,
 } from "@/server/services/authService";
 import { createSessionToken, setSessionCookie } from "@/server/session";
+
+/** A phone-camera photo of an ID runs to a few MB; 8 MB matches the domain's own cap. */
+const MAX_ID_PHOTO_BYTES = 8 * 1024 * 1024;
 
 const registerSchema = z.object({
   email: z.string().email().max(255),
@@ -26,20 +31,42 @@ const registerSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date of birth must be YYYY-MM-DD.")
     .or(z.string().datetime({ offset: true })),
   studioName: z.string().min(2).max(100).optional(),
+  contactHandle: z.string().max(100).optional(),
 });
 
 export async function POST(request: Request): Promise<NextResponse> {
-  let payload: unknown;
+  let form: FormData;
   try {
-    payload = await request.json();
+    form = await request.formData();
   } catch {
     return NextResponse.json(
-      { error: "invalid_json", message: "Body must be JSON." },
+      { error: "invalid_body", message: "Body must be multipart form data." },
       { status: 400 },
     );
   }
 
-  const parsed = registerSchema.safeParse(payload);
+  const fields = Object.fromEntries(
+    Array.from(form.entries()).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  );
+
+  const idPhotoField = form.get("idPhoto");
+  if (idPhotoField instanceof File && idPhotoField.size > MAX_ID_PHOTO_BYTES) {
+    return NextResponse.json(
+      {
+        error: "id_photo_too_large",
+        message: `That photo is ${(idPhotoField.size / 1_048_576).toFixed(1)} MB. The limit is ${MAX_ID_PHOTO_BYTES / 1_048_576} MB.`,
+      },
+      { status: 413 },
+    );
+  }
+  const idPhoto =
+    idPhotoField instanceof File
+      ? new Uint8Array(await idPhotoField.arrayBuffer())
+      : undefined;
+
+  const parsed = registerSchema.safeParse(fields);
   if (!parsed.success) {
     return NextResponse.json(
       {
@@ -88,6 +115,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       role: parsed.data.role,
       birthDate,
       studioName: parsed.data.studioName,
+      contactHandle: parsed.data.contactHandle,
+      idPhoto,
     });
 
     const token = await createSessionToken(session);
@@ -127,6 +156,18 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (error instanceof UnderageRegistrationError) {
       return NextResponse.json(
         { error: "underage", message: error.message },
+        { status: 422 },
+      );
+    }
+    if (error instanceof InvalidContactHandleError) {
+      return NextResponse.json(
+        { error: "invalid_contact_handle", message: error.message },
+        { status: 422 },
+      );
+    }
+    if (error instanceof InvalidIdPhotoError) {
+      return NextResponse.json(
+        { error: "invalid_id_photo", message: error.message },
         { status: 422 },
       );
     }
