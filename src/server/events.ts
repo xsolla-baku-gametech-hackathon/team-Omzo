@@ -64,6 +64,17 @@ class CampaignEventHub {
     this.emitter.emit("all", event);
   }
 
+  /**
+   * How many listeners are attached to a campaign's channel.
+   *
+   * Exists so a leaked subscription is observable rather than a thing you
+   * reason about: a stream that fails to unsubscribe shows up here as a
+   * count that never returns to zero.
+   */
+  listenerCount(campaignId: string): number {
+    return this.emitter.listenerCount(`campaign:${campaignId}`);
+  }
+
   subscribe(
     campaignId: string,
     listener: (event: CampaignEvent) => void,

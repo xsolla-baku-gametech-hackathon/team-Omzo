@@ -15,6 +15,9 @@ import { getSession } from "@/server/session";
 
 export const dynamic = "force-dynamic";
 
+/** Keeps proxies from timing the connection out mid-playtest. */
+const HEARTBEAT_MS = 15_000;
+
 export async function GET(
   request: Request,
   props: { params: Promise<{ id: string }> },
@@ -40,6 +43,29 @@ export async function GET(
   let cleanup: (() => void) | null = null;
   let interval: NodeJS.Timeout | null = null;
 
+  /**
+   * Unsubscribe and stop the heartbeat, exactly once.
+   *
+   * Every path that can discover the client is gone routes through here.
+   * Previously only cancel() released anything, and the listener swallowed
+   * enqueue failures silently -- so a client that vanished without cancel()
+   * firing left its subscription registered against the campaign for the
+   * lifetime of the process. On a board left open across a long playtest
+   * that is an unbounded set of dead listeners, each one serialising every
+   * subsequent event into a closed stream.
+   */
+  let released = false;
+  const release = (): void => {
+    if (released) return;
+    released = true;
+    cleanup?.();
+    cleanup = null;
+    if (interval !== null) {
+      clearInterval(interval);
+      interval = null;
+    }
+  };
+
   const stream = new ReadableStream({
     start(controller) {
       // Send initial connected message
@@ -56,24 +82,33 @@ export async function GET(
             encoder.encode(`event: ${event.type}\ndata: ${payload}\n\n`),
           );
         } catch {
-          // Client disconnected
+          // The stream is closed: the client is gone. Let go of it rather
+          // than staying subscribed to serialise events into a dead socket.
+          release();
         }
       };
 
       cleanup = campaignEvents.subscribe(campaignId, listener);
+
+      // The reliable disconnect signal. cancel() is not guaranteed to run on
+      // every abort path, so this is what actually bounds the subscription.
+      request.signal.addEventListener("abort", release, { once: true });
+
+      // A client that aborted before start() ran would otherwise never be
+      // released, because the abort event has already fired by now.
+      if (request.signal.aborted) release();
 
       // Heartbeat ping every 15 seconds to keep the connection alive
       interval = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(`: ping\n\n`));
         } catch {
-          if (interval) clearInterval(interval);
+          release();
         }
-      }, 15000);
+      }, HEARTBEAT_MS);
     },
     cancel() {
-      if (cleanup) cleanup();
-      if (interval) clearInterval(interval);
+      release();
     },
   });
 
