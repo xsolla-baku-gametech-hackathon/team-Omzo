@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 
 import type { Prisma, Report as ReportRow } from "@prisma/client";
 
-import { sanitizeLogLine, sanitizeSceneId, sanitizeText } from "@/domain/sanitize";
+import {
+  sanitizeLogLine,
+  sanitizeSceneId,
+  sanitizeText,
+} from "@/domain/sanitize";
 import { ingest, rebuildIssue } from "@/domain/triage/cluster";
 import type { TriageState } from "@/domain/triage/cluster";
 import type {

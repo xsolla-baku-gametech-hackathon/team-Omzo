@@ -14,7 +14,8 @@ export interface StackFrame {
 }
 
 export interface NormalizedCrash {
-  readonly engine: "UNITY" | "UNREAL" | "GODOT" | "BROWSER" | "WASM" | "UNKNOWN";
+  readonly engine:
+    "UNITY" | "UNREAL" | "GODOT" | "BROWSER" | "WASM" | "UNKNOWN";
   readonly topFrame?: StackFrame;
   readonly signature: string;
   readonly framesCount: number;
@@ -22,17 +23,27 @@ export interface NormalizedCrash {
 
 const HEX_ADDRESS_REGEX = /0x[0-9a-fA-F]+/g;
 const WASM_FUNC_REGEX = /wasm-function\[\d+\]/g;
-const GUID_HASH_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+const GUID_HASH_REGEX =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
 /**
  * Detects the originating game engine from callstack signatures.
  */
 export function detectGameEngine(trace: string): NormalizedCrash["engine"] {
   const lower = trace.toLowerCase();
-  if (lower.includes("unity") || lower.includes("unityloader") || lower.includes("il2cpp")) {
+  if (
+    lower.includes("unity") ||
+    lower.includes("unityloader") ||
+    lower.includes("il2cpp")
+  ) {
     return "UNITY";
   }
-  if (lower.includes("unreal") || lower.includes("ue4") || lower.includes("ue5") || lower.includes("fengine")) {
+  if (
+    lower.includes("unreal") ||
+    lower.includes("ue4") ||
+    lower.includes("ue5") ||
+    lower.includes("fengine")
+  ) {
     return "UNREAL";
   }
   if (lower.includes("godot")) {
@@ -41,7 +52,11 @@ export function detectGameEngine(trace: string): NormalizedCrash["engine"] {
   if (lower.includes("wasm-function") || lower.includes(".wasm")) {
     return "WASM";
   }
-  if (lower.includes("typeerror:") || lower.includes("referenceerror:") || lower.includes("at ")) {
+  if (
+    lower.includes("typeerror:") ||
+    lower.includes("referenceerror:") ||
+    lower.includes("at ")
+  ) {
     return "BROWSER";
   }
   return "UNKNOWN";
@@ -98,8 +113,13 @@ export function parseStackTrace(rawTrace: string): NormalizedCrash {
   }
 
   // Create signature from top 3 normalized frames
-  const sigParts = normalizedLines.slice(0, 3).map((l) => l.replace(/^at\s+/i, ""));
-  const signature = sigParts.length > 0 ? `${engine}:${sigParts.join(" -> ")}` : `${engine}:NO_FRAMES`;
+  const sigParts = normalizedLines
+    .slice(0, 3)
+    .map((l) => l.replace(/^at\s+/i, ""));
+  const signature =
+    sigParts.length > 0
+      ? `${engine}:${sigParts.join(" -> ")}`
+      : `${engine}:NO_FRAMES`;
 
   return {
     engine,

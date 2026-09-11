@@ -18,7 +18,9 @@ describe("apiResponse", () => {
   });
 
   it("generates correct error payload structure", async () => {
-    const response = apiError("not_found", "Campaign not found", 404, { id: "camp-999" });
+    const response = apiError("not_found", "Campaign not found", 404, {
+      id: "camp-999",
+    });
 
     expect(response.status).toBe(404);
     const json = await response.json();
@@ -31,9 +33,15 @@ describe("apiResponse", () => {
   });
 
   it("extracts error message from various error types", () => {
-    expect(extractErrorMessage(new Error("Database connection lost"))).toBe("Database connection lost");
-    expect(extractErrorMessage("Direct string error")).toBe("Direct string error");
-    expect(extractErrorMessage(null, "Fallback message")).toBe("Fallback message");
+    expect(extractErrorMessage(new Error("Database connection lost"))).toBe(
+      "Database connection lost",
+    );
+    expect(extractErrorMessage("Direct string error")).toBe(
+      "Direct string error",
+    );
+    expect(extractErrorMessage(null, "Fallback message")).toBe(
+      "Fallback message",
+    );
     expect(extractErrorMessage(undefined)).toBe("An unexpected error occurred");
   });
 });

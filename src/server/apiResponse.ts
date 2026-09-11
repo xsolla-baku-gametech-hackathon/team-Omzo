@@ -55,7 +55,10 @@ export function apiError(
   return NextResponse.json(payload, { status, headers });
 }
 
-export function extractErrorMessage(err: unknown, fallback: string = "An unexpected error occurred"): string {
+export function extractErrorMessage(
+  err: unknown,
+  fallback: string = "An unexpected error occurred",
+): string {
   if (err instanceof Error && err.message) {
     return err.message;
   }

@@ -34,7 +34,7 @@ describe("sanitize domain engine", () => {
   });
 
   it("sanitizes console log lines safely", () => {
-    const rawLine = 'Uncaught TypeError: <script>evil()</script> at line 42';
+    const rawLine = "Uncaught TypeError: <script>evil()</script> at line 42";
     const sanitized = sanitizeLogLine(rawLine);
     expect(sanitized).not.toContain("<script>");
     expect(sanitized).toContain("Uncaught TypeError:");

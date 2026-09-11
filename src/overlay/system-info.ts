@@ -36,8 +36,7 @@ function detectBrowser(ua: string): string {
 function getGpuRenderer(): string {
   try {
     const canvas = document.createElement("canvas");
-    const gl =
-      canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
     if (!gl) return "No WebGL";
 
     const ext = gl.getExtension("WEBGL_debug_renderer_info");

@@ -68,7 +68,5 @@ export function installConsoleProxy(): void {
 }
 
 export function getConsoleTail(): string[] {
-  return buffer.map(
-    (e) => `[${e.level}] ${e.message}`,
-  );
+  return buffer.map((e) => `[${e.level}] ${e.message}`);
 }

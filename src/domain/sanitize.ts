@@ -29,9 +29,7 @@ export function sanitizeText(raw: string, maxLength: number = 4000): string {
   }
 
   // Replace raw angle brackets with HTML entities to neutralize any nested tag injection
-  cleaned = cleaned
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  cleaned = cleaned.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   if (cleaned.length > maxLength) {
     cleaned = cleaned.slice(0, maxLength);
@@ -43,7 +41,10 @@ export function sanitizeText(raw: string, maxLength: number = 4000): string {
 /**
  * Sanitizes a single console log line or stack trace snippet.
  */
-export function sanitizeLogLine(line: string, maxLength: number = 1000): string {
+export function sanitizeLogLine(
+  line: string,
+  maxLength: number = 1000,
+): string {
   if (typeof line !== "string") return "";
   return sanitizeText(line, maxLength);
 }

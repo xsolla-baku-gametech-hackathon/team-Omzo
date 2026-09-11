@@ -65,7 +65,11 @@ export function stringSimilarity(s1: string, s2: string): number {
 /**
  * Returns true if the similarity score between two words meets or exceeds the threshold.
  */
-export function isFuzzyMatch(s1: string, s2: string, threshold: number = 0.8): boolean {
+export function isFuzzyMatch(
+  s1: string,
+  s2: string,
+  threshold: number = 0.8,
+): boolean {
   return stringSimilarity(s1, s2) >= threshold;
 }
 
