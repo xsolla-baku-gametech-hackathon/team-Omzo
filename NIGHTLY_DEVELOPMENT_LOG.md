@@ -1,7 +1,7 @@
 # Nightly Development Log
 
 Branch `nightly-mvp-build`, built on top of `backup-pre-nightly` (43094fe).
-Twenty-one commits, 41 files, +2466 / −98 lines.
+Twenty-three commits, 43 files.
 
 The original pre-nightly state is preserved on both the `backup-pre-nightly`
 branch and its remote copy. `backup-pre-nightly` is an ancestor of this
@@ -77,6 +77,12 @@ rather than guessed at.
 
 ### 1.3 Hardening
 
+- **Campaign enrolment on ingest.** Authenticating the reporter stopped
+  strangers filing as other people, but a session caller's campaign still came
+  from the request body, so any signed-in tester could post into a build they
+  were never given. A session principal now has to be backed by an `AccessGrant`
+  row for that campaign; a grant token needs no lookup, because its signature
+  already names one.
 - **Layered login throttling.** Login was bounded only per-address, which does
   not bound credential stuffing at all: a pool of addresses yields a fresh
   budget from each one while grinding a single account. A second bucket now
@@ -96,9 +102,9 @@ rather than guessed at.
 
 ### 1.4 Tests
 
-269 passing (from 197 at the start of the branch), across 28 files.
+275 passing (from 197 at the start of the branch), across 28 files.
 
-New suites: `secrets` (13), `ingestAuth` (10), `tenancyMutations` (12),
+New suites: `secrets` (13), `ingestAuth` (16), `tenancyMutations` (12),
 `watermarkEcc` (5, two of them exhaustive sweeps), plus `rateLimiter`,
 `sanitize`, `passwordRules`, `auditLog`, `fuzzyMatch`, `stackTrace`,
 `apiResponse` from earlier in the night.
@@ -253,15 +259,11 @@ limits is telling half of something.
   is a wire-format change that would invalidate existing watermarked frames,
   which was not a safe thing to do on demo night. It is a prepared primitive,
   not a live feature, and should not be presented as one.
-- **Session-authenticated ingest does not verify campaign enrolment.** A
-  logged-in tester can file against any _open_ campaign. Grant-token callers are
-  correctly pinned to their campaign. Much narrower than the original hole, but
-  not closed.
 - **`Access-Control-Allow-Origin: *` remains on `/api/ingest`.** Acceptable now
   that the route authenticates via bearer token rather than ambient cookies —
   this is the standard public-API shape — but it is a deliberate choice, not an
   oversight.
-- **The commit count is 21, not the 350 originally targeted.** Every commit here
+- **The commit count is 23, not the 350 originally targeted.** Every commit here
   is a real, verified change; several were validated against a running server
   before being written. Reaching 350 in one night would have required splitting
   work into fragments too small to verify, and the instruction that no commit be
