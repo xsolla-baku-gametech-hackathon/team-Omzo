@@ -1,5 +1,6 @@
 import { verifyGrantToken } from "@/domain/access/token";
 import { requireSecret } from "@/server/config/secrets";
+import { db } from "@/server/db";
 import { getSession } from "@/server/session";
 
 /**
@@ -73,4 +74,37 @@ export async function authenticateIngest(
   if (session === null) return null;
 
   return { userId: session.sub, via: "session" };
+}
+
+/**
+ * May this principal file against this campaign?
+ *
+ * A grant token names its own campaign in a signature the client cannot
+ * alter, so holding a valid one is the answer.
+ *
+ * A session cookie does not. Without this check any signed-in tester could
+ * post into any *open* campaign — far narrower than the original hole, where
+ * no credential was needed at all, but still someone filing reports against
+ * a build they were never given and whose NDA they never signed.
+ *
+ * AccessGrant is the enrolment record: the schema keeps one row per tester
+ * per campaign for life, re-issuance updating it in place, so its presence
+ * means this person was genuinely admitted to this build at some point. An
+ * expired grant still counts — a tester whose 15-minute build token lapsed
+ * mid-session is still a real tester, and their queued reports should land.
+ */
+export async function mayReportTo(
+  principal: IngestPrincipal,
+  campaignId: string,
+): Promise<boolean> {
+  if (principal.via === "grant_token") {
+    return principal.campaignId === campaignId;
+  }
+
+  const grant = await db.accessGrant.findFirst({
+    where: { userId: principal.userId, campaignId },
+    select: { id: true },
+  });
+
+  return grant !== null;
 }

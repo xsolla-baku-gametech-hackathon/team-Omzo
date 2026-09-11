@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { signGrantToken } from "@/domain/access/token";
-import { authenticateIngest } from "@/server/auth/ingestAuth";
+import { authenticateIngest, mayReportTo } from "@/server/auth/ingestAuth";
 import { requireSecret } from "@/server/config/secrets";
 
 /**
@@ -11,9 +11,15 @@ import { requireSecret } from "@/server/config/secrets";
  * request asserts must never be the identity the server records.
  */
 
-const { getSessionMock } = vi.hoisted(() => ({ getSessionMock: vi.fn() }));
+const { getSessionMock, findFirstMock } = vi.hoisted(() => ({
+  getSessionMock: vi.fn(),
+  findFirstMock: vi.fn(),
+}));
 
 vi.mock("@/server/session", () => ({ getSession: getSessionMock }));
+vi.mock("@/server/db", () => ({
+  db: { accessGrant: { findFirst: findFirstMock } },
+}));
 
 function request(headers: Record<string, string> = {}): Request {
   return new Request("https://repro.test/api/ingest", {
@@ -39,6 +45,7 @@ describe("ingest authentication", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
     getSessionMock.mockResolvedValue(null);
+    findFirstMock.mockReset();
   });
 
   afterEach(() => {
@@ -151,5 +158,63 @@ describe("ingest authentication", () => {
 
     const principal = await authenticateIngest(request());
     expect(principal?.campaignId).toBeUndefined();
+  });
+});
+
+describe("campaign scope", () => {
+  beforeEach(() => {
+    findFirstMock.mockReset();
+  });
+
+  const sessionPrincipal = { userId: "tester-02", via: "session" } as const;
+  const tokenPrincipal = {
+    userId: "tester-07",
+    campaignId: "camp-9",
+    via: "grant_token",
+  } as const;
+
+  it("lets a token holder file against the campaign it names", async () => {
+    await expect(mayReportTo(tokenPrincipal, "camp-9")).resolves.toBe(true);
+    // No lookup needed: the campaign is inside the signature.
+    expect(findFirstMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a token holder filing against a different campaign", async () => {
+    await expect(mayReportTo(tokenPrincipal, "camp-1")).resolves.toBe(false);
+  });
+
+  it("lets a session caller file where they hold an access grant", async () => {
+    findFirstMock.mockResolvedValue({ id: "grant-1" });
+    await expect(mayReportTo(sessionPrincipal, "camp-1")).resolves.toBe(true);
+  });
+
+  it("refuses a session caller filing into a campaign they never joined", async () => {
+    // The narrower half of the original hole: signed in, but never admitted
+    // to this build and never asked to sign its NDA.
+    findFirstMock.mockResolvedValue(null);
+    await expect(mayReportTo(sessionPrincipal, "camp-1")).resolves.toBe(false);
+  });
+
+  it("scopes the grant lookup to both the user and the campaign", async () => {
+    findFirstMock.mockResolvedValue({ id: "grant-1" });
+    await mayReportTo(sessionPrincipal, "camp-1");
+
+    expect(findFirstMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "tester-02", campaignId: "camp-1" },
+      }),
+    );
+  });
+
+  it("still accepts a tester whose grant has expired", async () => {
+    // The lookup deliberately ignores expiresAt. A tester whose 15-minute
+    // build token lapsed mid-session is still a real tester, and the
+    // overlay's queued reports should land rather than be dropped.
+    findFirstMock.mockResolvedValue({ id: "grant-1" });
+    await mayReportTo(sessionPrincipal, "camp-1");
+
+    const where = findFirstMock.mock.calls[0]?.[0]?.where ?? {};
+    expect(where).not.toHaveProperty("expiresAt");
+    expect(where).not.toHaveProperty("consumedAt");
   });
 });

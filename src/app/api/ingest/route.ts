@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { authenticateIngest } from "@/server/auth/ingestAuth";
+import { authenticateIngest, mayReportTo } from "@/server/auth/ingestAuth";
 import { rateLimit } from "@/server/security/rateLimiter";
 import {
   CampaignNotOpenError,
@@ -122,12 +122,23 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
+  // A grant token pins its own campaign; a session cookie does not, so a
+  // session caller has to be someone this campaign actually admitted.
+  const campaignId = principal.campaignId ?? parsed.data.campaignId;
+  if (!(await mayReportTo(principal, campaignId))) {
+    return NextResponse.json(
+      {
+        error: "not_found",
+        message: "No such campaign.",
+      },
+      { status: 404 },
+    );
+  }
+
   try {
     const outcome = await ingestReport({
       ...parsed.data,
-      // A grant token names its own campaign, so the body cannot redirect the
-      // report somewhere the grant does not cover.
-      campaignId: principal.campaignId ?? parsed.data.campaignId,
+      campaignId,
       reporterId: principal.userId,
     });
     return NextResponse.json(outcome, {
