@@ -19,8 +19,10 @@ import type {
 } from "@/domain/triage/types";
 import { db } from "@/server/db";
 import { sharedTraitsOf, toPreparedReport } from "@/server/reportMapping";
+import { isApprovedForDownload } from "@/server/services/applicationService";
 import { penaliseNoise } from "@/server/services/rewardService";
 import { campaignEvents } from "@/server/events";
+import { canPlay } from "@/domain/campaigns/windows";
 
 /**
  * Ingest orchestration: load, decide, persist.
@@ -58,6 +60,13 @@ export class CampaignNotOpenError extends Error {
   constructor(readonly campaignId: string) {
     super("This campaign is not accepting reports.");
     this.name = "CampaignNotOpenError";
+  }
+}
+
+export class TesterNotApprovedError extends Error {
+  constructor(readonly campaignId: string) {
+    super("You are not approved to report on this download campaign.");
+    this.name = "TesterNotApprovedError";
   }
 }
 
@@ -153,7 +162,15 @@ async function existingOutcome(
 export async function ingestReport(input: IngestInput): Promise<IngestOutcome> {
   const campaign = await db.campaign.findUnique({
     where: { id: input.campaignId },
-    select: { status: true, revokedAt: true },
+    select: {
+      status: true,
+      revokedAt: true,
+      buildKind: true,
+      applicationOpensAt: true,
+      applicationClosesAt: true,
+      testingStartsAt: true,
+      testingEndsAt: true,
+    },
   });
 
   if (
@@ -162,6 +179,27 @@ export async function ingestReport(input: IngestInput): Promise<IngestOutcome> {
     campaign.revokedAt !== null
   ) {
     throw new CampaignNotOpenError(input.campaignId);
+  }
+
+  if (
+    !canPlay({
+      applicationOpensAt: campaign.applicationOpensAt,
+      applicationClosesAt: campaign.applicationClosesAt,
+      testingStartsAt: campaign.testingStartsAt,
+      testingEndsAt: campaign.testingEndsAt,
+    })
+  ) {
+    throw new CampaignNotOpenError(input.campaignId);
+  }
+
+  if (campaign.buildKind === "DOWNLOAD") {
+    const approved = await isApprovedForDownload(
+      input.campaignId,
+      input.reporterId,
+    );
+    if (!approved) {
+      throw new TesterNotApprovedError(input.campaignId);
+    }
   }
 
   // The overlay retries with backoff (§7), so the same report can arrive

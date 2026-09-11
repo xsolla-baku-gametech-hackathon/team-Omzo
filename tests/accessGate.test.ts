@@ -8,6 +8,7 @@ vi.mock("@/server/db", () => ({
   db: {
     accessGrant: { findUnique: vi.fn(), update: vi.fn() },
     campaign: { findUnique: vi.fn() },
+    campaignApplication: { findUnique: vi.fn() },
   },
 }));
 
@@ -20,6 +21,13 @@ import {
 
 const ACCESS_SECRET = requireSecret("ACCESS_SECRET");
 const UA = "Firefox/120.0";
+
+const OPEN_WINDOWS = {
+  applicationOpensAt: new Date(Date.now() - 60_000),
+  applicationClosesAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+  testingStartsAt: new Date(Date.now() - 60_000),
+  testingEndsAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+};
 
 function tokenFor(grantId: string, campaignId = "c-1", userId = "u-1"): string {
   return signGrantToken(
@@ -59,8 +67,13 @@ async function mockGrant(overrides: {
       status: overrides.status ?? "OPEN",
       revokedAt: overrides.revokedAt ?? null,
       buildKind: overrides.buildKind ?? "DOWNLOAD",
+      ...OPEN_WINDOWS,
     },
   } as unknown as AccessGrant & { campaign: Campaign });
+
+  vi.mocked(db.campaignApplication.findUnique).mockResolvedValue({
+    status: "APPROVED",
+  } as never);
 }
 
 describe("single-use grants are spent by delivery, not by inspection", () => {

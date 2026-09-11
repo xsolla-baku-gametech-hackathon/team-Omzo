@@ -31,12 +31,14 @@ model User {
   birthDate    DateTime? // age is computed server-side at NDA signing
   createdAt    DateTime  @default(now())
 
-  studio        Studio?
-  ndaSignatures NdaSignature[]
-  reports       Report[]
-  ledgerEntries LedgerEntry[]
-  accessGrants  AccessGrant[]
-  rewardClaims  RewardClaim[]
+  studio                 Studio?
+  ndaSignatures          NdaSignature[]
+  reports                Report[]
+  ledgerEntries          LedgerEntry[]
+  accessGrants           AccessGrant[]
+  rewardClaims           RewardClaim[]
+  campaignApplications   CampaignApplication[] @relation("Applicant")
+  resolvedApplications   CampaignApplication[] @relation("ApplicationResolver")
 }
 
 enum Role {
@@ -104,6 +106,12 @@ model Campaign {
   rewardPoolTotal Int            @default(0) // in coins
   rewardPerIssue  Int            @default(50)
   revokedAt       DateTime? // set → every live grant is invalid at once
+  /// When testers may submit a DOWNLOAD application.
+  applicationOpensAt  DateTime
+  applicationClosesAt DateTime
+  /// When approved testers may play and file reports.
+  testingStartsAt     DateTime
+  testingEndsAt       DateTime
   createdAt       DateTime       @default(now())
 
   reports       Report[]
@@ -111,6 +119,36 @@ model Campaign {
   ndaSignatures NdaSignature[]
   accessGrants  AccessGrant[]
   rewardItems   RewardItem[]
+  applications  CampaignApplication[]
+}
+
+/**
+ * A tester asking for DOWNLOAD access. Link/web campaigns skip this —
+ * only binary delivery requires studio approval before NDA + grant.
+ */
+model CampaignApplication {
+  id           String            @id @default(cuid())
+  campaignId   String
+  campaign     Campaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  testerId     String
+  tester       User              @relation("Applicant", fields: [testerId], references: [id])
+  status       ApplicationStatus @default(PENDING)
+  message      String?
+  createdAt    DateTime          @default(now())
+  resolvedAt   DateTime?
+  resolvedById String?
+  resolvedBy   User?             @relation("ApplicationResolver", fields: [resolvedById], references: [id])
+
+  @@unique([campaignId, testerId])
+  @@index([campaignId, status])
+  @@index([testerId, createdAt])
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  DENIED
+  WITHDRAWN
 }
 
 enum BuildKind {
@@ -151,6 +189,8 @@ enum AccessOutcome {
   DENIED_EXPIRED
   DENIED_REVOKED
   DENIED_CONSUMED
+  DENIED_OUTSIDE_WINDOW
+  DENIED_NOT_APPROVED
 }
 
 enum CampaignStatus {

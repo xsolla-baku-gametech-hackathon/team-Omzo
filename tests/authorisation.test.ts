@@ -51,12 +51,22 @@ vi.mock("@/server/db", () => {
         create: vi.fn(),
         update: vi.fn(),
       },
+      campaignApplication: {
+        findUnique: vi.fn(),
+      },
       $transaction: vi.fn(),
     },
   };
 });
 
 import { db } from "@/server/db";
+
+const OPEN_WINDOWS = {
+  applicationOpensAt: new Date(Date.now() - 60_000),
+  applicationClosesAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+  testingStartsAt: new Date(Date.now() - 60_000),
+  testingEndsAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+};
 
 describe("Authorisation & Security Layer (SPEC.md §6)", () => {
   beforeEach(() => {
@@ -108,6 +118,8 @@ describe("Authorisation & Security Layer (SPEC.md §6)", () => {
         status: "OPEN",
         revokedAt: null,
         ndaBodyMd: "Confidentiality terms",
+        buildKind: "WEB_EMBED",
+        ...OPEN_WINDOWS,
       } as unknown as Campaign);
 
       vi.mocked(db.user.findUnique).mockResolvedValue({
@@ -142,6 +154,8 @@ describe("Authorisation & Security Layer (SPEC.md §6)", () => {
         status: "OPEN",
         revokedAt: null,
         ndaBodyMd: "Terms",
+        buildKind: "WEB_EMBED",
+        ...OPEN_WINDOWS,
       } as unknown as Campaign);
       vi.mocked(db.user.findUnique).mockResolvedValue({
         id: "user-adult",
@@ -216,6 +230,7 @@ describe("Authorisation & Security Layer (SPEC.md §6)", () => {
           status: "OPEN",
           revokedAt: null,
           buildKind: "WEB_EMBED",
+          ...OPEN_WINDOWS,
         },
       } as unknown as AccessGrant & { campaign: Campaign });
 
@@ -263,6 +278,7 @@ describe("Authorisation & Security Layer (SPEC.md §6)", () => {
           id: "c-1",
           status: "OPEN",
           revokedAt: new Date(), // Revoked!
+          ...OPEN_WINDOWS,
         },
       } as unknown as AccessGrant & { campaign: Campaign });
 
@@ -290,6 +306,7 @@ describe("Authorisation & Security Layer (SPEC.md §6)", () => {
 
       vi.mocked(db.accessGrant.findUnique).mockResolvedValue({
         id: grantId,
+        userId: "u-1",
         uaHash,
         expiresAt: new Date(Date.now() + 600000),
         consumedAt: new Date(), // Already consumed!
@@ -298,8 +315,13 @@ describe("Authorisation & Security Layer (SPEC.md §6)", () => {
           status: "OPEN",
           revokedAt: null,
           buildKind: "DOWNLOAD",
+          ...OPEN_WINDOWS,
         },
       } as unknown as AccessGrant & { campaign: Campaign });
+
+      vi.mocked(db.campaignApplication.findUnique).mockResolvedValue({
+        status: "APPROVED",
+      } as never);
 
       await expect(
         validateAccessGrant({ token, userAgent: ua }),
@@ -311,6 +333,8 @@ describe("Authorisation & Security Layer (SPEC.md §6)", () => {
         id: "c-1",
         status: "OPEN",
         revokedAt: null,
+        buildKind: "WEB_EMBED",
+        ...OPEN_WINDOWS,
       } as unknown as Campaign);
 
       vi.mocked(db.ndaSignature.findUnique).mockResolvedValue({

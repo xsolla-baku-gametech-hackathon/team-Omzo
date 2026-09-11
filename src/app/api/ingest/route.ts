@@ -5,6 +5,7 @@ import { authenticateIngest, mayReportTo } from "@/server/auth/ingestAuth";
 import { rateLimit } from "@/server/security/rateLimiter";
 import {
   CampaignNotOpenError,
+  TesterNotApprovedError,
   ingestReport,
 } from "@/server/services/ingestService";
 
@@ -152,6 +153,15 @@ export async function POST(request: Request): Promise<NextResponse> {
           message: "This campaign is not accepting reports.",
         },
         { status: 409 },
+      );
+    }
+    if (error instanceof TesterNotApprovedError) {
+      return NextResponse.json(
+        {
+          error: "not_approved",
+          message: error.message,
+        },
+        { status: 403 },
       );
     }
 

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { EmptyPanel } from "@/components/EmptyPanel";
 import { MeStats } from "@/components/MeStats";
 import { RewardShelf } from "@/components/RewardShelf";
+import { trustLevelOf } from "@/domain/trust/level";
 import { getShelfFor } from "@/server/services/rewardClaimService";
 import { getTesterSummary } from "@/server/services/rewardService";
 import { getSession } from "@/server/session";
@@ -62,6 +63,7 @@ export default async function MePage() {
         <MeStats
           balance={summary.balance}
           signalScore={summary.signalScore}
+          trustLevel={trustLevelOf(summary.signalScore)}
           issuesFound={summary.issuesFound}
         />
 

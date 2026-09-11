@@ -1,4 +1,8 @@
 import { db } from "@/server/db";
+import {
+  assertCampaignWindows,
+  defaultCampaignWindows,
+} from "@/domain/campaigns/windows";
 import type { BuildKind, Campaign, CampaignStatus } from "@prisma/client";
 
 /**
@@ -21,6 +25,10 @@ export interface CreateCampaignInput {
   readonly maxTesters?: number;
   readonly rewardPoolTotal?: number;
   readonly rewardPerIssue?: number;
+  readonly applicationOpensAt?: Date;
+  readonly applicationClosesAt?: Date;
+  readonly testingStartsAt?: Date;
+  readonly testingEndsAt?: Date;
 }
 
 export interface UpdateCampaignInput {
@@ -34,6 +42,10 @@ export interface UpdateCampaignInput {
   readonly ndaBodyMd?: string;
   readonly maxTesters?: number;
   readonly status?: CampaignStatus;
+  readonly applicationOpensAt?: Date;
+  readonly applicationClosesAt?: Date;
+  readonly testingStartsAt?: Date;
+  readonly testingEndsAt?: Date;
 }
 
 export class CampaignNotFoundError extends Error {
@@ -56,6 +68,16 @@ export class UnauthorizedCampaignAccessError extends Error {
 export async function createCampaign(
   input: CreateCampaignInput,
 ): Promise<Campaign> {
+  const defaults = defaultCampaignWindows();
+  const windows = {
+    applicationOpensAt: input.applicationOpensAt ?? defaults.applicationOpensAt,
+    applicationClosesAt:
+      input.applicationClosesAt ?? defaults.applicationClosesAt,
+    testingStartsAt: input.testingStartsAt ?? defaults.testingStartsAt,
+    testingEndsAt: input.testingEndsAt ?? defaults.testingEndsAt,
+  };
+  assertCampaignWindows(windows);
+
   return db.campaign.create({
     data: {
       studioId: input.studioId,
@@ -69,6 +91,7 @@ export async function createCampaign(
       rewardPoolTotal: input.rewardPoolTotal ?? 0,
       rewardPerIssue: input.rewardPerIssue ?? 50,
       status: "OPEN",
+      ...windows,
     },
   });
 }
@@ -131,7 +154,25 @@ export async function getStudioCampaign(
 export async function updateCampaign(
   input: UpdateCampaignInput,
 ): Promise<Campaign> {
-  await getStudioCampaign(input.campaignId, input.studioId);
+  const existing = await getStudioCampaign(input.campaignId, input.studioId);
+
+  const windows = {
+    applicationOpensAt:
+      input.applicationOpensAt ?? existing.applicationOpensAt,
+    applicationClosesAt:
+      input.applicationClosesAt ?? existing.applicationClosesAt,
+    testingStartsAt: input.testingStartsAt ?? existing.testingStartsAt,
+    testingEndsAt: input.testingEndsAt ?? existing.testingEndsAt,
+  };
+
+  if (
+    input.applicationOpensAt !== undefined ||
+    input.applicationClosesAt !== undefined ||
+    input.testingStartsAt !== undefined ||
+    input.testingEndsAt !== undefined
+  ) {
+    assertCampaignWindows(windows, { requireFutureTestingEnd: false });
+  }
 
   return db.campaign.update({
     where: { id: input.campaignId },
@@ -144,6 +185,7 @@ export async function updateCampaign(
       ndaBodyMd: input.ndaBodyMd?.trim(),
       maxTesters: input.maxTesters,
       status: input.status,
+      ...windows,
     },
   });
 }

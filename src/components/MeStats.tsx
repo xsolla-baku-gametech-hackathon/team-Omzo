@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 interface MeStatsProps {
   readonly balance: number;
   readonly signalScore: number;
+  readonly trustLevel: number;
   readonly issuesFound: number;
 }
 
@@ -70,6 +71,24 @@ const CARDS = [
     wash: "rgba(240, 166, 60, 0.12)",
   },
   {
+    key: "level" as const,
+    label: "Trust level",
+    hint: "1–100 standing",
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+        <path
+          d="M12 3 14.5 8.5 20.5 9.5 16 13.5 17.5 19.5 12 16.5 6.5 19.5 8 13.5 3.5 9.5 9.5 8.5 12 3Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+    accent: "var(--accent-text)",
+    wash: "var(--accent-wash)",
+  },
+  {
     key: "signal" as const,
     label: "Signal",
     hint: "report quality",
@@ -126,16 +145,18 @@ const CARDS = [
 export function MeStats({
   balance,
   signalScore,
+  trustLevel,
   issuesFound,
 }: MeStatsProps) {
   const values = {
     coins: balance,
+    level: trustLevel,
     signal: signalScore,
     issues: issuesFound,
   };
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {CARDS.map((card, index) => (
         <div
           key={card.key}

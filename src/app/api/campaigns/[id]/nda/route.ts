@@ -7,15 +7,18 @@ import {
   validateLegalName,
 } from "@/domain/access/identityRules";
 import {
+  ApprovalRequiredForNdaError,
   CampaignNotOpenForSigningError,
   InvalidTypedNameError,
   MissingBirthDateError,
+  RedistributionAckRequiredError,
   UnderageError,
   getNdaSignature,
   signNda,
 } from "@/server/services/ndaService";
 import { getSession } from "@/server/session";
 import { db } from "@/server/db";
+import { effectiveNdaBody } from "@/domain/campaigns/leakRider";
 
 const signNdaSchema = z.object({
   typedName: z
@@ -35,6 +38,7 @@ const signNdaSchema = z.object({
   agreedToTerms: z.boolean().refine((value) => value === true, {
     message: "You must accept the confidentiality terms.",
   }),
+  acceptedNoRedistribution: z.boolean().optional(),
 });
 
 export async function GET(
@@ -51,10 +55,36 @@ export async function GET(
     );
   }
 
+  const campaign = await db.campaign.findUnique({
+    where: { id: campaignId },
+    select: {
+      id: true,
+      title: true,
+      ndaBodyMd: true,
+      buildKind: true,
+      status: true,
+      revokedAt: true,
+    },
+  });
+
+  if (
+    campaign === null ||
+    campaign.status !== "OPEN" ||
+    campaign.revokedAt !== null
+  ) {
+    return NextResponse.json(
+      { error: "not_found", message: "Campaign not found." },
+      { status: 404 },
+    );
+  }
+
   const signature = await getNdaSignature(session.sub, campaignId);
   return NextResponse.json({
     signed: signature !== null,
     signature,
+    buildKind: campaign.buildKind,
+    ndaBodyMd: effectiveNdaBody(campaign.ndaBodyMd, campaign.buildKind),
+    requiresRedistributionAck: campaign.buildKind === "DOWNLOAD",
   });
 }
 
@@ -140,6 +170,7 @@ export async function POST(
       typedName: parsed.data.typedName,
       userAgent,
       clientIp,
+      acceptedNoRedistribution: parsed.data.acceptedNoRedistribution,
     });
 
     return NextResponse.json({ success: true, signature }, { status: 201 });
@@ -166,6 +197,18 @@ export async function POST(
       return NextResponse.json(
         { error: "invalid_name", message: error.message },
         { status: 422 },
+      );
+    }
+    if (error instanceof RedistributionAckRequiredError) {
+      return NextResponse.json(
+        { error: "redistribution_ack_required", message: error.message },
+        { status: 422 },
+      );
+    }
+    if (error instanceof ApprovalRequiredForNdaError) {
+      return NextResponse.json(
+        { error: "approval_required", message: error.message },
+        { status: 403 },
       );
     }
 

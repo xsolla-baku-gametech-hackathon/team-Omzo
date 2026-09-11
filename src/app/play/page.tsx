@@ -1,12 +1,82 @@
 import Link from "next/link";
 
 import { EmptyPanel } from "@/components/EmptyPanel";
+import {
+  PlayCampaignActions,
+  type PlayCtaState,
+} from "@/components/PlayCampaignActions";
+import { canApply, canPlay } from "@/domain/campaigns/windows";
+import { db } from "@/server/db";
 import { getOpenCampaigns } from "@/server/services/campaignService";
 import { getSession } from "@/server/session";
+
+function resolveCtaState(input: {
+  readonly loggedIn: boolean;
+  readonly buildKind: string;
+  readonly applicationStatus: string | null;
+  readonly ndaSigned: boolean;
+  readonly windows: {
+    readonly applicationOpensAt: Date;
+    readonly applicationClosesAt: Date;
+    readonly testingStartsAt: Date;
+    readonly testingEndsAt: Date;
+  };
+}): PlayCtaState {
+  const { buildKind, windows } = input;
+
+  if (buildKind !== "DOWNLOAD") {
+    if (!input.loggedIn) return "sign_in";
+    return input.ndaSigned ? "enter" : "open";
+  }
+
+  if (!canPlay(windows) && !canApply(windows)) {
+    return "closed";
+  }
+
+  if (!input.loggedIn) return "sign_in";
+
+  if (input.applicationStatus === "APPROVED") {
+    if (!canPlay(windows)) return "closed";
+    return input.ndaSigned ? "enter" : "sign_nda";
+  }
+
+  if (input.applicationStatus === "PENDING") return "pending";
+  if (input.applicationStatus === "DENIED") {
+    return canApply(windows) ? "denied" : "closed";
+  }
+
+  if (!canApply(windows)) return "closed";
+  return "apply";
+}
 
 export default async function PlayIndexPage() {
   const session = await getSession();
   const campaigns = await getOpenCampaigns();
+
+  const campaignIds = campaigns.map((c) => c.id);
+  const [applications, signatures] = session
+    ? await Promise.all([
+        db.campaignApplication.findMany({
+          where: {
+            testerId: session.sub,
+            campaignId: { in: campaignIds },
+          },
+          select: { campaignId: true, status: true },
+        }),
+        db.ndaSignature.findMany({
+          where: {
+            userId: session.sub,
+            campaignId: { in: campaignIds },
+          },
+          select: { campaignId: true },
+        }),
+      ])
+    : [[], []];
+
+  const appByCampaign = new Map(
+    applications.map((a) => [a.campaignId, a.status]),
+  );
+  const signedSet = new Set(signatures.map((s) => s.campaignId));
 
   return (
     <div className="min-h-screen bg-[var(--surface-page)] text-[var(--ink-primary)] font-sans">
@@ -70,8 +140,9 @@ export default async function PlayIndexPage() {
             Open playtests
           </h1>
           <p className="mt-1 max-w-xl text-sm leading-relaxed text-[var(--ink-secondary)]">
-            Pre-release builds looking for critical bugs. Sign the NDA, play,
-            report, and earn claim tokens.
+            Pre-release builds looking for critical bugs. Download campaigns
+            require studio approval; then sign the NDA, play, report, and earn
+            claim tokens.
           </p>
         </div>
 
@@ -101,8 +172,22 @@ export default async function PlayIndexPage() {
         ) : (
           <div className="grid gap-4">
             {campaigns.map((c, index) => {
-              const studio = (c as unknown as { studio?: { name: string } })
-                .studio;
+              const studio = (
+                c as unknown as { studio?: { name: string } }
+              ).studio;
+              const windows = {
+                applicationOpensAt: c.applicationOpensAt,
+                applicationClosesAt: c.applicationClosesAt,
+                testingStartsAt: c.testingStartsAt,
+                testingEndsAt: c.testingEndsAt,
+              };
+              const state = resolveCtaState({
+                loggedIn: Boolean(session),
+                buildKind: c.buildKind,
+                applicationStatus: appByCampaign.get(c.id) ?? null,
+                ndaSigned: signedSet.has(c.id),
+                windows,
+              });
 
               return (
                 <article
@@ -146,6 +231,13 @@ export default async function PlayIndexPage() {
                           {c.testFocus}
                         </p>
                       </div>
+                      {c.buildKind === "DOWNLOAD" && (
+                        <p className="text-[11px] text-[var(--ink-tertiary)]">
+                          Testing{" "}
+                          {c.testingStartsAt.toLocaleDateString()} –{" "}
+                          {c.testingEndsAt.toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex min-w-[180px] flex-col justify-between border-t border-[var(--line-subtle)] pt-4 md:border-l md:border-t-0 md:pl-6 md:pt-0">
@@ -163,12 +255,13 @@ export default async function PlayIndexPage() {
                           Pool {c.rewardPoolTotal}
                         </div>
                       </div>
-                      <Link
-                        href={`/play/${c.id}/nda`}
-                        className="rounded-full bg-[var(--accent)] px-4 py-2.5 text-center text-xs font-semibold text-[var(--accent-on-fill)] transition hover:bg-[var(--accent-hover)] active:scale-[0.98]"
-                      >
-                        Sign NDA & play
-                      </Link>
+                      <PlayCampaignActions
+                        campaignId={c.id}
+                        buildKind={c.buildKind}
+                        state={state}
+                        applicationClosesAt={c.applicationClosesAt.toISOString()}
+                        testingEndsAt={c.testingEndsAt.toISOString()}
+                      />
                     </div>
                   </div>
                 </article>
