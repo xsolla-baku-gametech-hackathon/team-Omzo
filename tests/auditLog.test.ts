@@ -11,10 +11,15 @@ describe("auditLog system", () => {
   });
 
   it("records and retrieves structured audit entries", () => {
-    const entry = recordAuditEvent("AUTH_LOGIN_SUCCESS", "user_123", "session_abc", {
-      ip: "127.0.0.1",
-      userAgent: "TestAgent/1.0",
-    });
+    const entry = recordAuditEvent(
+      "AUTH_LOGIN_SUCCESS",
+      "user_123",
+      "session_abc",
+      {
+        ip: "127.0.0.1",
+        userAgent: "TestAgent/1.0",
+      },
+    );
 
     expect(entry.action).toBe("AUTH_LOGIN_SUCCESS");
     expect(entry.actorId).toBe("user_123");
@@ -26,11 +31,16 @@ describe("auditLog system", () => {
   });
 
   it("automatically redacts sensitive keys like password and token in metadata", () => {
-    const entry = recordAuditEvent("AUTH_LOGIN_FAILURE", "unknown_user", undefined, {
-      attemptedPassword: "supersecretpassword",
-      apiToken: "eyJhbGciOi...",
-      cleanField: "safe_value",
-    });
+    const entry = recordAuditEvent(
+      "AUTH_LOGIN_FAILURE",
+      "unknown_user",
+      undefined,
+      {
+        attemptedPassword: "supersecretpassword",
+        apiToken: "eyJhbGciOi...",
+        cleanField: "safe_value",
+      },
+    );
 
     expect(entry.metadata.attemptedPassword).toBe("[REDACTED]");
     expect(entry.metadata.apiToken).toBe("[REDACTED]");

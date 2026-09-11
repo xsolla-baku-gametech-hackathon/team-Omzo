@@ -39,7 +39,13 @@ describe("fuzzyMatch", () => {
   });
 
   it("finds closest keyword from a domain dictionary", () => {
-    const dictionary = ["collision", "respawn", "inventory", "elevator", "shader"];
+    const dictionary = [
+      "collision",
+      "respawn",
+      "inventory",
+      "elevator",
+      "shader",
+    ];
 
     expect(findClosestKeyword("colision", dictionary)).toBe("collision");
     expect(findClosestKeyword("elevatr", dictionary)).toBe("elevator");

@@ -14,11 +14,17 @@ import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest): NextResponse {
   // Handle CORS preflight for the in-game overlay posting to /api/ingest
-  if (request.method === "OPTIONS" && request.nextUrl.pathname.startsWith("/api/ingest")) {
+  if (
+    request.method === "OPTIONS" &&
+    request.nextUrl.pathname.startsWith("/api/ingest")
+  ) {
     const response = new NextResponse(null, { status: 204 });
     response.headers.set("Access-Control-Allow-Origin", "*");
     response.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    response.headers.set(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization",
+    );
     response.headers.set("Access-Control-Max-Age", "86400");
     return response;
   }

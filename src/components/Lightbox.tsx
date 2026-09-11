@@ -70,7 +70,9 @@ export function Lightbox({
               <button
                 type="button"
                 onClick={() =>
-                  onIndexChange((currentIndex - 1 + images.length) % images.length)
+                  onIndexChange(
+                    (currentIndex - 1 + images.length) % images.length,
+                  )
                 }
                 aria-label="Previous screenshot"
                 className="absolute left-3 top-1/2 -translate-y-1/2 p-3 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full focus-visible:outline-2 focus-visible:outline-[var(--accent)]"

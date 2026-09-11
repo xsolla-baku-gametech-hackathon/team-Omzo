@@ -149,7 +149,12 @@ function drawRoom(room: Room): void {
       // Blinking lights
       for (let j = 0; j < 8; j++) {
         ctx.fillStyle = Math.random() > 0.5 ? "#0f5e58" : "#1a2823";
-        ctx.fillRect(190 + i * 140 + (j % 4) * 14, floorY - 170 + Math.floor(j / 4) * 40, 6, 6);
+        ctx.fillRect(
+          190 + i * 140 + (j % 4) * 14,
+          floorY - 170 + Math.floor(j / 4) * 40,
+          6,
+          6,
+        );
       }
     }
     if (!audioPlaying) {
@@ -193,12 +198,20 @@ function drawHUD(): void {
   const fps = heavyCompute ? "⚠ LOW FPS" : "60 FPS";
   ctx.fillStyle = "#6e7b77";
   ctx.font = "400 12px ui-monospace, Menlo, monospace";
-  ctx.fillText(`Room: ${ROOMS[currentRoom].name} | ${fps} | Press ~ or F1 to report (or click button)`, 30, H - 20);
+  ctx.fillText(
+    `Room: ${ROOMS[currentRoom].name} | ${fps} | Press ~ or F1 to report (or click button)`,
+    30,
+    H - 20,
+  );
 
   const elapsed = Math.floor((Date.now() - startTime) / 1000);
   const min = Math.floor(elapsed / 60);
   const sec = elapsed % 60;
-  ctx.fillText(`Playtime: ${min}:${sec.toString().padStart(2, "0")}`, W - 180, H - 20);
+  ctx.fillText(
+    `Playtime: ${min}:${sec.toString().padStart(2, "0")}`,
+    W - 180,
+    H - 20,
+  );
 }
 
 // ── Audio ────────────────────────────────────────────────────────────
@@ -255,7 +268,9 @@ function checkLiftCollision(): void {
     if (!liftFrozen) {
       liftFrozen = true;
       liftFreezeTimer = 180; // ~3 seconds at 60fps
-      console.error("Uncaught TypeError: cannot read 'mesh' of null at Lift.tick (lift.js:42)");
+      console.error(
+        "Uncaught TypeError: cannot read 'mesh' of null at Lift.tick (lift.js:42)",
+      );
       console.error("entity ent_7f3a detached from scene graph");
     }
   }
@@ -315,10 +330,14 @@ function updateDrones(): void {
     if (waste < -1) console.log(waste);
 
     if (drones.length > 40) {
-      console.warn(`frame budget exceeded: ${(16 + drones.length * 0.8).toFixed(0)}ms`);
+      console.warn(
+        `frame budget exceeded: ${(16 + drones.length * 0.8).toFixed(0)}ms`,
+      );
     }
     if (drones.length > 50 && Math.random() < 0.05) {
-      console.error(`Failed to allocate instance buffer, falling back (${drones.length} draws)`);
+      console.error(
+        `Failed to allocate instance buffer, falling back (${drones.length} draws)`,
+      );
     }
   } else {
     heavyCompute = false;
