@@ -14,6 +14,7 @@ import {
   type BuildKind,
 } from "@/domain/campaigns/delivery";
 
+const README = fileURLToPath(new URL("../README.md", import.meta.url));
 const SCHEMA = fileURLToPath(
   new URL("../prisma/schema.prisma", import.meta.url),
 );
@@ -142,5 +143,64 @@ describe("build URL safety", () => {
     if (!broken.safe) {
       expect(broken.reason).toMatch(/https/);
     }
+  });
+});
+
+describe("the README capability matrix", () => {
+  const COLUMNS = [
+    { kind: "EXTERNAL_LINK", header: "Link only" },
+    { kind: "WEB_EMBED", header: "Hosted — web" },
+    { kind: "DOWNLOAD", header: "Hosted — download" },
+  ] as const;
+
+  const ROWS = [
+    ["gatedByGrant", "Reachable only with a live, browser-bound grant"],
+    ["ndaRecorded", "NDA acceptance recorded against a person"],
+    ["accessLogged", "Every attempt written to an append-only log"],
+    ["watermarksFrames", "Every rendered frame names the tester"],
+    ["singleUseAccess", "Link dies on first use"],
+    ["preventsForwarding", "Stops a tester passing the build on"],
+  ] as const;
+
+  /** Cell contents only — prettier owns the column padding, not this test. */
+  function normalise(table: string): string[][] {
+    return table
+      .trim()
+      .split("\n")
+      .map((line) =>
+        line
+          .replace(/^\||\|$/g, "")
+          .split("|")
+          .map((cell) => cell.trim()),
+      )
+      .filter((cells) => !cells.every((cell) => /^-*$/.test(cell)));
+  }
+
+  function expectedRows(): string[][] {
+    const rows: string[][] = [["Capability", ...COLUMNS.map((c) => c.header)]];
+    for (const [key, label] of ROWS) {
+      rows.push([
+        label,
+        ...COLUMNS.map((c) => (capabilitiesOf(c.kind)[key] ? "yes" : "no")),
+      ]);
+    }
+    return rows;
+  }
+
+  it("says exactly what the code says", () => {
+    // The matrix is the most load-bearing paragraph in the README: it is the
+    // security claim a studio decides on. A copy that drifts from the table
+    // driving the product is worse than no table at all, so it is asserted
+    // rather than maintained by hand.
+    const readme = readFileSync(README, "utf8");
+    const between =
+      /<!-- capability-matrix:start -->([\s\S]*?)<!-- capability-matrix:end -->/.exec(
+        readme,
+      );
+    expect(
+      between,
+      "capability-matrix markers missing from README",
+    ).not.toBeNull();
+    expect(normalise(between![1])).toEqual(expectedRows());
   });
 });
