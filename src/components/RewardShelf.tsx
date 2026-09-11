@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { EmptyPanel } from "@/components/EmptyPanel";
 import {
   CLAIM_REFUSAL_MESSAGE,
   REWARD_KIND_LABEL,
@@ -55,9 +56,11 @@ export function RewardShelf(props: { rows: ShelfRow[] }) {
 
   if (props.rows.length === 0) {
     return (
-      <p className="text-[13px] text-[var(--ink-secondary)]">
-        The studios you have joined have not stocked anything yet.
-      </p>
+      <EmptyPanel
+        visual="shelf"
+        title="Shelf is empty"
+        description="Studios you have playtested have not stocked rewards yet. Verified issues still earn coins — claims appear here when a shelf is stocked."
+      />
     );
   }
 

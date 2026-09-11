@@ -41,86 +41,108 @@ export default function LoginPage() {
     }
   }
 
-  return (
-    <main className="min-h-screen bg-[var(--surface-page)] flex items-center justify-center p-6 text-[var(--ink-primary)] font-sans relative">
-      <div className="absolute top-6 right-6"></div>
+  const inputClass =
+    "w-full rounded-xl border border-[var(--line-medium)] bg-white/[0.03] px-3.5 py-3 text-[15px] text-[var(--ink-primary)] placeholder:text-[var(--ink-tertiary)] outline-none transition focus:border-[var(--accent)] focus:bg-white/[0.05] focus:shadow-[0_0_0_4px_var(--accent-wash)]";
 
-      <div className="w-full max-w-sm border border-[var(--line-subtle)] bg-[var(--surface-raised)] p-8 rounded-[var(--radius-md)] shadow-xs">
-        <div className="mb-6">
+  return (
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--surface-page)] px-5 py-12 text-[var(--ink-primary)] font-sans">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 45% at 50% -10%, var(--bloom-ambient-tint), transparent 55%)",
+        }}
+      />
+
+      <div
+        className="relative z-10 w-full max-w-[400px]"
+        style={{
+          animation: "empty-panel-in 480ms cubic-bezier(0.22,1,0.36,1) both",
+        }}
+      >
+        <div className="mb-8 text-center">
           <Link
             href="/"
-            className="text-xs font-semibold text-[var(--ink-secondary)] hover:text-[var(--ink-primary)] transition-colors"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--ink-secondary)] transition-colors hover:text-[var(--ink-primary)]"
           >
             ← Repro
           </Link>
-          <h1 className="text-xl font-semibold mt-2 tracking-tight text-[var(--ink-primary)]">
+          <h1 className="mt-4 text-[32px] font-semibold tracking-[-0.03em]">
             Sign in
           </h1>
-          <p className="text-xs text-[var(--ink-secondary)] mt-1">
-            Access playtesting campaigns or your studio board.
+          <p className="mt-2 text-[15px] text-[var(--ink-secondary)]">
+            Open playtests or your studio triage board.
           </p>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 bg-[var(--sev-critical-wash)] border border-[var(--sev-critical)]/20 text-[var(--ink-primary)] text-xs rounded-[var(--radius-sm)]">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-xs font-medium text-[var(--ink-secondary)] uppercase mb-1"
+        <div className="rounded-[28px] border border-[var(--line-subtle)] bg-[var(--surface-raised)]/80 p-7 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          {error && (
+            <div
+              role="alert"
+              className="mb-5 rounded-2xl border border-[var(--sev-critical)]/25 bg-[var(--sev-critical-wash)] px-3.5 py-3 text-[13px] text-[var(--sev-critical)]"
             >
-              Email address
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)]"
-              placeholder="alex@studio.dev"
-            />
-          </div>
+              {error}
+            </div>
+          )}
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-xs font-medium text-[var(--ink-secondary)] uppercase mb-1"
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label
+                htmlFor="email"
+                className="mb-1.5 block text-[12px] font-medium text-[var(--ink-secondary)]"
+              >
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClass}
+                placeholder="alex@studio.dev"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="mb-1.5 block text-[12px] font-medium text-[var(--ink-secondary)]"
+              >
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClass}
+                placeholder="••••••••"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-2 w-full rounded-full bg-[var(--accent)] px-4 py-3.5 text-[15px] font-semibold text-[var(--accent-on-fill)] shadow-[0_8px_24px_var(--accent-glow)] transition hover:bg-[var(--accent-hover)] active:scale-[0.98] disabled:opacity-50"
             >
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)]"
-              placeholder="••••••••"
-            />
-          </div>
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 px-4 bg-[var(--accent)] text-[var(--accent-on-fill)] hover:bg-[var(--accent-hover)] text-sm font-medium rounded-[var(--radius-sm)] disabled:opacity-50 transition-opacity"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
-
-        <div className="mt-6 pt-4 border-t border-[var(--line-subtle)] text-center text-xs text-[var(--ink-secondary)]">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/register"
-            className="text-[var(--ink-primary)] underline font-medium"
-          >
-            Register
-          </Link>
+          <p className="mt-6 text-center text-[13px] text-[var(--ink-secondary)]">
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/register"
+              className="font-semibold text-[var(--accent-text)] hover:opacity-80"
+            >
+              Create one
+            </Link>
+          </p>
         </div>
       </div>
     </main>

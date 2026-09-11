@@ -155,7 +155,7 @@ export function WatermarkedFrame({
           <button
             type="button"
             onClick={() => void toggleFullscreen()}
-            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-[var(--line-medium)] bg-[var(--surface-page)]/90 px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-primary)] shadow-sm backdrop-blur transition hover:bg-[var(--surface-overlay)]"
+            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-[var(--line-medium)] bg-[var(--surface-page)]/90 px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-primary)] shadow-sm backdrop-blur transition hover:bg-[var(--surface-overlay)] active:scale-[0.98]"
           >
             {isFullscreen ? "Exit full screen" : "Full screen"}
           </button>
@@ -163,10 +163,16 @@ export function WatermarkedFrame({
             type="button"
             onClick={() => toggleOverlay()}
             title="Open bug report (~ or F1)"
-            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-[var(--line-medium)] bg-[var(--surface-page)]/90 px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-primary)] shadow-sm backdrop-blur transition hover:bg-[var(--surface-overlay)]"
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-[var(--sev-critical)]/30 bg-[var(--surface-page)]/92 px-3.5 py-1.5 text-[12px] font-semibold text-[var(--ink-primary)] shadow-[0_8px_24px_rgba(0,0,0,0.35)] backdrop-blur transition hover:border-[var(--sev-critical)]/50 hover:bg-[var(--surface-overlay)] active:scale-[0.98]"
           >
-            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--sev-critical)]" />
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--sev-critical)] opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--sev-critical)]" />
+            </span>
             Report bug
+            <kbd className="hidden rounded border border-[var(--line-subtle)] bg-[var(--surface-sunken)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--ink-tertiary)] sm:inline">
+              F1
+            </kbd>
           </button>
         </div>
       </div>
