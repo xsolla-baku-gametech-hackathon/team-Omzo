@@ -86,7 +86,7 @@ const SECURITY_LAYERS: ReadonlyArray<{
   },
   {
     claim:
-      "Exported frames carry a 16-bit watermark in pixel luminance that survives 2x and 3x downscaling.",
+      "Exported frames carry an invisible watermark in pixel luminance that survives 2× and 3× downscaling.",
     limit:
       "It does not survive lossy JPEG, heavy filters, or a phone photographing a monitor. When the mark is gone this is said plainly rather than guessed.",
   },

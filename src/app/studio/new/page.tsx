@@ -51,35 +51,34 @@ const BUILD_KIND_CARDS: readonly {
   {
     kind: "EXTERNAL_LINK",
     icon: "🔗",
-    name: "Yalnız Link",
-    desc: "Sizdə olan URL — itch.io, Steam Playtest, TestFlight. Build bizə çatmır.",
+    name: "Link only",
+    desc: "Your URL — itch.io, Steam Playtest, TestFlight. The build never reaches us.",
   },
   {
     kind: "WEB_EMBED",
     icon: "🌐",
     name: "Web Embed",
-    desc: "Brauzerdə biz render edirik — hər kadrda su nişanı.",
+    desc: "We render in the browser — frame watermark on every frame.",
   },
   {
     kind: "DOWNLOAD",
     icon: "💾",
     name: "Download",
-    desc: "Tək istifadəlik imzalı yükləmə linki.",
+    desc: "Single-use signed download link.",
   },
 ];
 
 /**
- * The caveat in the console's own language. The capability booleans stay
- * single-sourced in domain/ — only the wording is local, because the tester
- * surface reads the English one and this console is Azerbaijani.
+ * The limitation to print next to the mode. The capability booleans stay
+ * single-sourced in domain/ — only the wording is local to this form.
  */
-const CAVEAT_AZ: Record<string, string> = {
+const MODE_CAVEATS: Record<string, string> = {
   LINK_ONLY:
-    "Build bizə heç vaxt çatmır — deməli kadrlara su nişanı vura bilmirik və testerin linki ötürməsinin qarşısını ala bilmirik. Kimin aldığını və NDA-nı kimin imzaladığını isə tam nəzarətdə saxlayırıq.",
+    "The binary never reaches us, so we cannot watermark frames or stop a tester forwarding your link. We control who receives it and record who accepted the NDA.",
   HOSTED:
-    "Build-i biz təqdim edirik, ona görə hər kadr testerin su nişanını daşıyır: sızmış bir ekran şəkli saniyələr içində hesabı adlandırır.",
+    "We serve the build, so every frame carries the tester's watermark and a leaked screenshot names an account within seconds.",
   SELF_HOSTED:
-    "Hələ mövcud deyil. Build sizin infrastrukturunuzda qalır, hər icazəni bizdən soruşaraq təqdim edir.",
+    "Not available yet. Your infrastructure serves the build and calls us to validate each grant first.",
 };
 
 const CAPABILITY_ROWS: readonly {
@@ -93,27 +92,27 @@ const CAPABILITY_ROWS: readonly {
 }[] = [
   {
     key: "gatedByGrant",
-    label: "Yalnız canlı, brauzerə bağlı icazə ilə açılır",
+    label: "Opens only with a live, browser-bound grant",
   },
-  { key: "ndaRecorded", label: "NDA-nı kimin imzaladığı qeydə alınır" },
+  { key: "ndaRecorded", label: "Records who signed the NDA" },
   {
     key: "accessLogged",
-    label: "Hər giriş cəhdi dəyişdirilə bilməyən jurnala yazılır",
+    label: "Every access attempt logged to an append-only journal",
   },
-  { key: "watermarksFrames", label: "Hər kadrda testeri adlandıran su nişanı" },
-  { key: "singleUseAccess", label: "Link ilk istifadədən sonra sönür" },
+  { key: "watermarksFrames", label: "Frame watermark identifying the tester" },
+  { key: "singleUseAccess", label: "Link expires after first use" },
 ];
 
 const PRESETS: Preset[] = [
   {
     name: "Indie Steam Alpha",
     icon: "🎮",
-    desc: "Sürətli veb və ya Steam playtesti",
+    desc: "Quick web or Steam playtest",
     title: "Vault Descent — Alpha Playtest",
     pitch:
-      "Atrium və bunker zonasında traversal və fizika mexanikalarını sınaqdan keçiririk.",
+      "Testing traversal and physics mechanics in the atrium and bunker zones.",
     testFocus:
-      "Fizika qırılmaları: lift, qapılar, obyektdən keçmə (clipping) və FPS enmələri.",
+      "Physics breaks: elevators, doors, clipping, and FPS drops.",
     buildKind: "EXTERNAL_LINK",
     buildUrl: "https://itch.io/queue/vault-descent-alpha",
     rewardPoolTotal: 5000,
@@ -123,12 +122,12 @@ const PRESETS: Preset[] = [
   {
     name: "Mobile Closed Beta",
     icon: "📱",
-    desc: "Mobil cihazlarda toxunuş və UI",
+    desc: "Touch and UI on mobile devices",
     title: "CyberCity Tactics — Mobile Beta",
     pitch:
-      "Android və iOS cihazlarında toxunuş cavabdehliyi və batareya sərfiyyatı sınağı.",
+      "Testing touch responsiveness and battery usage on Android and iOS.",
     testFocus:
-      "Sensor idarəetməsi, kiçik ekranlarda UI düzülüşü və kadr itkiləri.",
+      "Sensor controls, UI layout on small screens, and frame drops.",
     buildKind: "EXTERNAL_LINK",
     buildUrl: "https://testflight.apple.com/join/9fK2mQxA",
     rewardPoolTotal: 10000,
@@ -138,11 +137,11 @@ const PRESETS: Preset[] = [
   {
     name: "AAA Stress Test",
     icon: "🚀",
-    desc: "Yüksək yüklənmə və qəzalar",
+    desc: "High load and crashes",
     title: "Project Horizon — Stress Test",
-    pitch: "Böyük miqyaslı server və qrafika mühərriki yüklənmə playtesti.",
+    pitch: "Large-scale server and graphics engine load playtest.",
     testFocus:
-      "Yaddaş sızması (memory leak), server desinxronizasiyası və qrafik artefaktlar.",
+      "Memory leaks, server desync, and graphical artifacts.",
     buildKind: "WEB_EMBED",
     buildUrl: "/play/demo-session",
     rewardPoolTotal: 25000,
@@ -157,10 +156,10 @@ export default function NewCampaignPage() {
   const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
   const [title, setTitle] = useState("Vault Descent — Alpha Playtest");
   const [pitch, setPitch] = useState(
-    "Atrium və bunker zonasında traversal və fizika mexanikalarını sınaqdan keçiririk.",
+    "Testing traversal and physics mechanics in the atrium and bunker zones.",
   );
   const [testFocus, setTestFocus] = useState(
-    "Fizika qırılmaları: lift, qapılar, obyektdən keçmə (clipping) və FPS enmələri.",
+    "Physics breaks: elevators, doors, clipping, and FPS drops.",
   );
   // Link-only by default: the studio pastes a URL it already distributes and
   // the binary never reaches us. Hosting is the upgrade, not the entry price.
@@ -270,7 +269,7 @@ export default function NewCampaignPage() {
             </Link>
             <span className="text-[var(--line-subtle)]">/</span>
             <span className="text-sm font-medium text-[var(--accent)]">
-              Yeni Kampaniya Yarat
+              New Campaign
             </span>
           </div>
 
@@ -287,24 +286,23 @@ export default function NewCampaignPage() {
         <div className="mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--surface-raised)] border border-[var(--line-subtle)] text-xs text-[var(--ink-secondary)] mb-3">
             <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
-            Şirkət və Kampaniya Konfiqurasiyası
+            Studio & Campaign Setup
           </div>
           <h1 className="text-3xl font-semibold tracking-tight text-[var(--ink-primary)]">
-            Yeni Playtest Kampaniyası Aç
+            Create New Playtest Campaign
           </h1>
           <p className="text-sm text-[var(--ink-secondary)] mt-1.5 max-w-2xl leading-relaxed">
-            Oyun build-inizi testerlərə paylayın, forensik su nişanı ilə
-            sızmalardan qorunun və hesabatları avtomatlaşdırılmış triaj
-            lövhəsində toplayın.
+            Distribute your build to testers, protect against leaks with frame
+            watermarking, and collect reports in an automated triage board.
           </p>
         </div>
 
         {/* Quick Presets */}
         <div className="mb-8">
           <div className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-secondary)] mb-3 flex items-center gap-2">
-            <span>✨ Sürətli Şablonlar (Presets)</span>
+            <span>✨ Quick Presets</span>
             <span className="text-[10px] text-[var(--ink-tertiary)] font-normal">
-              Tək kliklə doldur
+              Fill with one click
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -325,7 +323,7 @@ export default function NewCampaignPage() {
                     <span className="text-xl">{preset.icon}</span>
                     {isSelected && (
                       <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[var(--accent)] text-[var(--accent-on-fill)]">
-                        Aktiv
+                        Active
                       </span>
                     )}
                   </div>
@@ -367,7 +365,7 @@ export default function NewCampaignPage() {
                 }`}
               >
                 <span>1.</span>
-                <span>Məlumatlar</span>
+                <span>Details</span>
               </button>
               <button
                 type="button"
@@ -379,7 +377,7 @@ export default function NewCampaignPage() {
                 }`}
               >
                 <span>2.</span>
-                <span>Build & Paylanma</span>
+                <span>Build & Distribution</span>
               </button>
               <button
                 type="button"
@@ -391,7 +389,7 @@ export default function NewCampaignPage() {
                 }`}
               >
                 <span>3.</span>
-                <span>Mükafat & NDA</span>
+                <span>Rewards & NDA</span>
               </button>
             </div>
 
@@ -404,11 +402,10 @@ export default function NewCampaignPage() {
                 <div className="space-y-5 animate-in fade-in duration-200">
                   <div className="border-b border-[var(--line-subtle)] pb-3">
                     <h3 className="text-base font-semibold text-[var(--ink-primary)]">
-                      1. Kampaniya və Oyun Haqqında
+                      1. Campaign & Game Details
                     </h3>
                     <p className="text-xs text-[var(--ink-secondary)] mt-0.5">
-                      Testerlərin ana səhifədə və playtest siyahısında görəcəyi
-                      məlumatlar.
+                      What testers see on the home page and playtest list.
                     </p>
                   </div>
 
@@ -417,7 +414,7 @@ export default function NewCampaignPage() {
                       htmlFor="title"
                       className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1.5"
                     >
-                      Kampaniya Başlığı (Oyun Adı və Mərhələ)
+                      Campaign Title (Game Name & Stage)
                     </label>
                     <input
                       id="title"
@@ -426,7 +423,7 @@ export default function NewCampaignPage() {
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       className="w-full px-3.5 py-2.5 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                      placeholder="Məs: Vault Descent — Technical Playtest"
+                      placeholder="e.g. Vault Descent — Technical Playtest"
                     />
                   </div>
 
@@ -435,7 +432,7 @@ export default function NewCampaignPage() {
                       htmlFor="pitch"
                       className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1.5"
                     >
-                      Qısa Təsvir (Pitch)
+                      Short Description (Pitch)
                     </label>
                     <textarea
                       id="pitch"
@@ -444,7 +441,7 @@ export default function NewCampaignPage() {
                       value={pitch}
                       onChange={(e) => setPitch(e.target.value)}
                       className="w-full px-3.5 py-2.5 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)] leading-relaxed transition-colors"
-                      placeholder="Oyunun qısa süjeti və playtestin əsas məqsədi..."
+                      placeholder="Brief game summary and main playtest goal..."
                     />
                   </div>
 
@@ -453,7 +450,7 @@ export default function NewCampaignPage() {
                       htmlFor="testFocus"
                       className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1.5"
                     >
-                      Test Fokus Sahəsi (&quot;Nəyi sındırmaq lazımdır&quot;)
+                      Test Focus Area (&quot;What to break&quot;)
                     </label>
                     <input
                       id="testFocus"
@@ -462,7 +459,7 @@ export default function NewCampaignPage() {
                       value={testFocus}
                       onChange={(e) => setTestFocus(e.target.value)}
                       className="w-full px-3.5 py-2.5 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] text-sm rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)] transition-colors"
-                      placeholder="Məs: Lift mexanikası, qapı toqquşmaları, physics clipping və audio desinxronizasiya."
+                      placeholder="e.g. Elevator mechanics, door collisions, physics clipping, audio desync."
                     />
                   </div>
 
@@ -472,7 +469,7 @@ export default function NewCampaignPage() {
                       onClick={() => setActiveStep(2)}
                       className="py-2 px-5 bg-[var(--accent)] text-[var(--accent-on-fill)] text-xs font-semibold rounded-[var(--radius-sm)] hover:bg-[var(--accent-hover)] transition-all"
                     >
-                      Növbəti: Build Növü →
+                      Next: Build Type →
                     </button>
                   </div>
                 </div>
@@ -483,18 +480,18 @@ export default function NewCampaignPage() {
                 <div className="space-y-5 animate-in fade-in duration-200">
                   <div className="border-b border-[var(--line-subtle)] pb-3">
                     <h3 className="text-base font-semibold text-[var(--ink-primary)]">
-                      2. Build Növü və Paylanma
+                      2. Build Type & Distribution
                     </h3>
                     <p className="text-xs text-[var(--ink-secondary)] mt-0.5">
-                      Testerlərin oyunu necə açacağını və su nişanının necə
-                      tətbiq olunacağını təyin edin.
+                      Choose how testers open the game and how watermarking
+                      applies.
                     </p>
                   </div>
 
                   {/* Build Kind Cards */}
                   <div>
                     <label className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-2">
-                      Build Paylanma Modeli
+                      Build Distribution Model
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {BUILD_KIND_CARDS.map((card) => (
@@ -523,7 +520,7 @@ export default function NewCampaignPage() {
                         out after a leak is a studio we have failed. */}
                     <div className="mt-3 p-3.5 border border-[var(--line-subtle)] bg-[var(--surface-sunken)] rounded-[var(--radius-sm)]">
                       <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-secondary)] mb-2">
-                        {DELIVERY_MODE_LABEL[deliveryMode]} — nə qoruyur
+                        {DELIVERY_MODE_LABEL[deliveryMode]} — what&apos;s protected
                       </div>
                       <ul className="space-y-1 mb-2.5">
                         {CAPABILITY_ROWS.map((row) => {
@@ -556,7 +553,7 @@ export default function NewCampaignPage() {
                         })}
                       </ul>
                       <p className="text-[11px] text-[var(--ink-secondary)] leading-relaxed">
-                        {CAVEAT_AZ[deliveryMode]}
+                        {MODE_CAVEATS[deliveryMode]}
                       </p>
                     </div>
                   </div>
@@ -566,7 +563,7 @@ export default function NewCampaignPage() {
                       htmlFor="buildUrl"
                       className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1.5"
                     >
-                      Build URL və ya Daxili Yol
+                      Build URL or Internal Path
                     </label>
                     <input
                       id="buildUrl"
@@ -595,7 +592,7 @@ export default function NewCampaignPage() {
                       htmlFor="maxTesters"
                       className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1.5"
                     >
-                      Maksimum İcazə Verilən Tester Sayı (Quota)
+                      Maximum Testers (Quota)
                     </label>
                     <input
                       id="maxTesters"
@@ -615,14 +612,14 @@ export default function NewCampaignPage() {
                       onClick={() => setActiveStep(1)}
                       className="py-2 px-4 border border-[var(--line-subtle)] text-[var(--ink-secondary)] text-xs font-medium rounded-[var(--radius-sm)] hover:text-[var(--ink-primary)]"
                     >
-                      ← Geri
+                      ← Back
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveStep(3)}
                       className="py-2 px-5 bg-[var(--accent)] text-[var(--accent-on-fill)] text-xs font-semibold rounded-[var(--radius-sm)] hover:bg-[var(--accent-hover)] transition-all"
                     >
-                      Növbəti: Mükafat & NDA →
+                      Next: Rewards & NDA →
                     </button>
                   </div>
                 </div>
@@ -633,11 +630,11 @@ export default function NewCampaignPage() {
                 <div className="space-y-5 animate-in fade-in duration-200">
                   <div className="border-b border-[var(--line-subtle)] pb-3">
                     <h3 className="text-base font-semibold text-[var(--ink-primary)]">
-                      3. Mükafat Fondu və NDA Qoruması
+                      3. Reward Pool & NDA
                     </h3>
                     <p className="text-xs text-[var(--ink-secondary)] mt-0.5">
-                      Testerlər tərəfindən tapılan təsdiqlənmiş xətalar üçün
-                      coin büdcəsini və məxfilik müqaviləsini tənzimləyin.
+                      Set the coin budget for verified bug reports and the
+                      confidentiality agreement.
                     </p>
                   </div>
 
@@ -649,7 +646,7 @@ export default function NewCampaignPage() {
                           htmlFor="rewardPool"
                           className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1.5"
                         >
-                          Ümumi Mükafat Fondu (Coins)
+                          Total Reward Pool (Coins)
                         </label>
                         <input
                           id="rewardPool"
@@ -669,7 +666,7 @@ export default function NewCampaignPage() {
                           htmlFor="rewardPerIssue"
                           className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1.5"
                         >
-                          Xəta Başına Mükafat (Coins)
+                          Reward Per Issue (Coins)
                         </label>
                         <input
                           id="rewardPerIssue"
@@ -688,10 +685,10 @@ export default function NewCampaignPage() {
                     {/* Visual meter */}
                     <div className="pt-2 border-t border-[var(--line-subtle)] flex items-center justify-between text-xs">
                       <span className="text-[var(--ink-secondary)]">
-                        Büdcə tutumu:
+                        Budget capacity:
                       </span>
                       <span className="font-mono font-semibold text-[var(--accent)]">
-                        ~{maxRewardedBugs} təsdiqlənmiş unikal xəta ödənişi
+                        ~{maxRewardedBugs} verified unique bug payouts
                       </span>
                     </div>
                   </div>
@@ -701,7 +698,7 @@ export default function NewCampaignPage() {
                       htmlFor="ndaBody"
                       className="block text-xs font-medium text-[var(--ink-secondary)] uppercase tracking-wider mb-1.5"
                     >
-                      NDA Mətni (Markdown formatında)
+                      NDA Text (Markdown)
                     </label>
                     <textarea
                       id="ndaBody"
@@ -712,9 +709,8 @@ export default function NewCampaignPage() {
                       className="w-full px-3.5 py-2.5 border border-[var(--line-subtle)] bg-[var(--surface-page)] text-[var(--ink-primary)] font-mono text-xs rounded-[var(--radius-sm)] focus:outline-none focus:border-[var(--accent)] leading-relaxed"
                     />
                     <p className="text-[11px] text-[var(--ink-tertiary)] mt-1">
-                      Bu mətnin SHA-256 heşi testerin biometrik insan təsdiqi və
-                      forensik su nişanı ID-si ilə birlikdə kriptoqrafik qeydə
-                      alınır.
+                      A record hash of this text is stored alongside the
+                      tester&apos;s identity verification and watermark ID.
                     </p>
                   </div>
 
@@ -724,7 +720,7 @@ export default function NewCampaignPage() {
                       onClick={() => setActiveStep(2)}
                       className="py-2 px-4 border border-[var(--line-subtle)] text-[var(--ink-secondary)] text-xs font-medium rounded-[var(--radius-sm)] hover:text-[var(--ink-primary)]"
                     >
-                      ← Geri
+                      ← Back
                     </button>
                     <button
                       type="submit"
@@ -733,8 +729,8 @@ export default function NewCampaignPage() {
                     >
                       <span>
                         {loading
-                          ? "Yaradılır..."
-                          : "🚀 Kampaniyanı Dərhal Dərc Et"}
+                          ? "Creating..."
+                          : "🚀 Publish Campaign"}
                       </span>
                     </button>
                   </div>
@@ -746,7 +742,7 @@ export default function NewCampaignPage() {
           {/* Right: Real-Time Live Preview Card (5 cols) */}
           <div className="lg:col-span-5 sticky top-24 space-y-4">
             <div className="text-xs font-semibold uppercase tracking-wider text-[var(--ink-secondary)] flex items-center justify-between">
-              <span>Canlı Baxış (Tester Görünüşü)</span>
+              <span>Live Preview (Tester View)</span>
               <span className="text-[10px] font-mono text-[var(--accent)]">
                 Live Card
               </span>
@@ -772,20 +768,20 @@ export default function NewCampaignPage() {
 
               <div>
                 <h3 className="text-lg font-semibold text-[var(--ink-primary)] tracking-tight">
-                  {title || "Kampaniya Başlığı..."}
+                  {title || "Campaign title..."}
                 </h3>
                 <p className="text-xs text-[var(--ink-secondary)] mt-1.5 line-clamp-2 leading-relaxed">
-                  {pitch || "Oyunun təsviri burada görünəcək..."}
+                  {pitch || "Game description will appear here..."}
                 </p>
               </div>
 
               {/* Test Focus Box */}
               <div className="p-3 bg-[var(--surface-page)] border border-[var(--line-subtle)] rounded-[var(--radius-sm)]">
                 <div className="text-[10px] font-semibold text-[var(--accent)] uppercase tracking-wider">
-                  Test Fokusu:
+                  Test Focus:
                 </div>
                 <div className="text-xs text-[var(--ink-secondary)] mt-0.5 line-clamp-2">
-                  {testFocus || "Sınaq sahəsi qeyd edilməyib"}
+                  {testFocus || "No test focus specified"}
                 </div>
               </div>
 
@@ -793,7 +789,7 @@ export default function NewCampaignPage() {
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--line-subtle)]">
                 <div className="p-2.5 bg-[var(--surface-sunken)] rounded-[var(--radius-sm)] border border-[var(--line-subtle)]">
                   <div className="text-[10px] text-[var(--ink-tertiary)] uppercase">
-                    Mükafat / Bug
+                    Reward / Bug
                   </div>
                   <div className="text-base font-bold font-mono text-[var(--accent)]">
                     {rewardPerIssue}{" "}
@@ -802,7 +798,7 @@ export default function NewCampaignPage() {
                 </div>
                 <div className="p-2.5 bg-[var(--surface-sunken)] rounded-[var(--radius-sm)] border border-[var(--line-subtle)]">
                   <div className="text-[10px] text-[var(--ink-tertiary)] uppercase">
-                    Ümumi Fond
+                    Total Pool
                   </div>
                   <div className="text-base font-bold font-mono text-[var(--ink-primary)]">
                     {rewardPoolTotal}{" "}
@@ -819,7 +815,7 @@ export default function NewCampaignPage() {
                   <>
                     <span className="flex items-center gap-1.5 text-[var(--state-verified)]">
                       <span>🛡️</span>
-                      <span>16-bit Forensic Watermark</span>
+                      <span>Frame watermark</span>
                     </span>
                     <span>Anti-Leak Protected</span>
                   </>
@@ -827,9 +823,9 @@ export default function NewCampaignPage() {
                   <>
                     <span className="flex items-center gap-1.5">
                       <span>🔗</span>
-                      <span>Su nişanı yoxdur — link rejimi</span>
+                      <span>No watermark — link mode</span>
                     </span>
-                    <span>NDA + giriş jurnalı</span>
+                    <span>NDA + access log</span>
                   </>
                 )}
               </div>
@@ -837,9 +833,9 @@ export default function NewCampaignPage() {
 
             {/* Micro Helper */}
             <div className="p-3.5 rounded-[var(--radius-sm)] bg-[var(--surface-sunken)] border border-[var(--line-subtle)] text-xs text-[var(--ink-secondary)] leading-relaxed">
-              💡 <strong>İpucu:</strong> Kampaniya yaradıldıqdan sonra siz real
-              vaxt rejimində testerlərin göndərdiyi kadrları, xəta klasterlərini
-              və unikal su nişanlarını izləyə biləcəksiniz.
+              💡 <strong>Tip:</strong> After creating the campaign, you can
+              monitor tester submissions, bug clusters, and watermark IDs in
+              real time.
             </div>
           </div>
         </div>

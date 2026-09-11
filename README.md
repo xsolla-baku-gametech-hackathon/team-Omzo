@@ -32,6 +32,21 @@ To seed 328 real fixture reports through the real ingest endpoint:
 pnpm seed
 ```
 
+## Deploy on Vercel
+
+1. Import the GitHub repo into Vercel (framework: Next.js, install: `pnpm install`).
+2. Attach a Neon (or other) Postgres database and set:
+   - `DATABASE_URL`
+   - `SESSION_SECRET` (≥32 chars)
+   - `ACCESS_SECRET` (≥32 chars)
+   - `APP_SALT` (≥32 chars)
+3. Optional: `ANTHROPIC_API_KEY` for title enrichment only.
+4. Deploy. `pnpm build` runs `prisma migrate deploy` then `next build`.
+
+Do not leave the three secrets blank in production — the app refuses to sign
+sessions or access tokens with the development fallbacks outside `development`
+and `test`.
+
 ## Architecture
 
 ```mermaid

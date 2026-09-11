@@ -1,26 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { embedWatermark } from "@/domain/watermark/encode";
 import { startDemoGame, stopDemoGame } from "@/overlay/demo-game";
-import { initOverlay, destroyOverlay } from "@/overlay/overlay";
+import { destroyOverlay, initOverlay, toggleOverlay } from "@/overlay/overlay";
 
 /**
  * The build frame, marked with the tester's identity (SPEC.md §6.2).
  *
- * In Phase 7 this frame hosts the demo game and the bug-report overlay.
- * The watermark is applied every second to the live canvas so any frame
- * grabbed at any moment carries the tester's identity.
- *
- * The overlay binds F1 and captures canvas-only screenshots, system info,
- * console tail, and game state from window.__repro.getState().
+ * Hosts the demo game (or a future hosted build) and re-marks the canvas
+ * once a second so any exported frame carries the tester's watermark.
  */
 
 const FRAME_WIDTH = 1280;
 const FRAME_HEIGHT = 720;
-
-/** Re-marked once a second, so any frame grabbed at any moment carries it. */
 const REMARK_INTERVAL_MS = 1000;
 
 interface WatermarkedFrameProps {
@@ -33,19 +27,16 @@ export function WatermarkedFrame({
   watermarkId,
   campaignId,
 }: WatermarkedFrameProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  /** Whether the game loop is running. */
-  const gameRunningRef = useRef(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Start the demo game.
     startDemoGame(canvas);
-    gameRunningRef.current = true;
 
-    // Apply watermark over the game at intervals.
     const markTimer = window.setInterval(() => {
       const context = canvas.getContext("2d", { willReadFrequently: true });
       if (!context) return;
@@ -68,9 +59,6 @@ export function WatermarkedFrame({
       }
     }, REMARK_INTERVAL_MS);
 
-    // Initialise the overlay.
-    // No reporter id is passed: the server reads the reporter from the
-    // session cookie or the build access token, never from the client.
     if (campaignId) {
       initOverlay({
         endpoint: "/api/ingest",
@@ -82,16 +70,22 @@ export function WatermarkedFrame({
       window.clearInterval(markTimer);
       stopDemoGame();
       destroyOverlay();
-      gameRunningRef.current = false;
     };
   }, [watermarkId, campaignId]);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(document.fullscreenElement === rootRef.current);
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   const exportFrame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Create an offscreen canvas to snapshot the current frame and embed the watermark
-    // without interrupting the running game loop.
     const offscreen = document.createElement("canvas");
     offscreen.width = FRAME_WIDTH;
     offscreen.height = FRAME_HEIGHT;
@@ -112,8 +106,6 @@ export function WatermarkedFrame({
     out.data.set(marked.data);
     ctx.putImageData(out, 0, 0);
 
-    // PNG, never JPEG, and never downscaled. A +/-2 delta does not survive a
-    // lossy re-encode.
     offscreen.toBlob((blob) => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
@@ -125,69 +117,111 @@ export function WatermarkedFrame({
     }, "image/png");
   }, [watermarkId]);
 
+  async function toggleFullscreen() {
+    const root = rootRef.current;
+    if (!root) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await root.requestFullscreen();
+      }
+    } catch {
+      // Fullscreen can be blocked by the browser; keep the session usable.
+    }
+  }
+
   return (
-    <div className="relative">
-      <canvas
-        ref={canvasRef}
-        width={FRAME_WIDTH}
-        height={FRAME_HEIGHT}
-        className="block w-full aspect-video bg-ink"
-        data-repro-game="true"
-      />
+    <div
+      ref={rootRef}
+      className={`relative flex flex-col bg-[var(--surface-raised)] ${
+        isFullscreen ? "h-screen w-screen" : ""
+      }`}
+    >
+      <div className="relative min-h-0 flex-1 bg-[var(--surface-sunken)]">
+        <canvas
+          ref={canvasRef}
+          width={FRAME_WIDTH}
+          height={FRAME_HEIGHT}
+          className={`block bg-[var(--surface-sunken)] ${
+            isFullscreen
+              ? "h-full w-full object-contain"
+              : "aspect-video w-full"
+          }`}
+          data-repro-game="true"
+        />
 
-      {/* On-canvas floating button for Mac and all users */}
-      <button
-        type="button"
-        onClick={() => {
-          import("@/overlay/overlay").then((m) => m.toggleOverlay());
-        }}
-        title="Open Bug Report Overlay (Shortcut: ~ or F1)"
-        className="absolute top-3 right-3 py-1.5 px-3 bg-ink/90 hover:bg-ink text-paper text-xs font-medium rounded-sm border border-hairline/40 shadow-md backdrop-blur-xs flex items-center gap-1.5 transition-transform active:scale-95"
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3">
+          <button
+            type="button"
+            onClick={() => void toggleFullscreen()}
+            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-[var(--line-medium)] bg-[var(--surface-page)]/90 px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-primary)] shadow-sm backdrop-blur transition hover:bg-[var(--surface-overlay)]"
+          >
+            {isFullscreen ? "Exit full screen" : "Full screen"}
+          </button>
+          <button
+            type="button"
+            onClick={() => toggleOverlay()}
+            title="Open bug report (~ or F1)"
+            className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-[var(--line-medium)] bg-[var(--surface-page)]/90 px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-primary)] shadow-sm backdrop-blur transition hover:bg-[var(--surface-overlay)]"
+          >
+            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--sev-critical)]" />
+            Report bug
+          </button>
+        </div>
+      </div>
+
+      <div
+        className={`border-t border-[var(--line-subtle)] bg-[var(--surface-page)] p-4 ${
+          isFullscreen ? "pb-[max(1rem,env(safe-area-inset-bottom))]" : ""
+        }`}
       >
-        <span className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-        Report Bug (~ / F1)
-      </button>
-
-      <div className="p-4 bg-paper border-t border-hairline flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <p className="text-label text-slate max-w-measure">
-            This frame carries your identifier in its brightness. Press{" "}
-            <kbd className="px-1.5 py-0.5 bg-raised border border-hairline rounded text-[11px] font-mono font-semibold">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <p className="max-w-xl text-[13px] leading-relaxed text-[var(--ink-secondary)]">
+            This frame quietly carries your tester id. Press{" "}
+            <kbd className="rounded border border-[var(--line-subtle)] bg-[var(--surface-raised)] px-1.5 py-0.5 font-mono text-[11px] font-semibold text-[var(--ink-primary)]">
               ~
             </kbd>{" "}
             or{" "}
-            <kbd className="px-1.5 py-0.5 bg-raised border border-hairline rounded text-[11px] font-mono">
+            <kbd className="rounded border border-[var(--line-subtle)] bg-[var(--surface-raised)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--ink-primary)]">
               F1
             </kbd>{" "}
-            (Shift+R) to report a bug, or click the button. Use arrow keys or
-            WASD to move.
+            to report, or use the buttons. Arrow keys / WASD to move.
           </p>
-          <div className="flex items-center gap-2">
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => {
-                import("@/overlay/overlay").then((m) => m.toggleOverlay());
-              }}
-              className="shrink-0 py-2 px-4 bg-ink text-paper text-label font-semibold rounded-sm hover:opacity-90 transition-opacity flex items-center gap-1.5"
+              onClick={() => toggleOverlay()}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent)] px-4 py-2 text-[13px] font-semibold text-[var(--accent-on-fill)] transition hover:bg-[var(--accent-hover)]"
             >
-              <span>🐛</span> Report Bug (~ / F1)
+              Report bug
             </button>
             <button
               type="button"
               onClick={exportFrame}
-              className="shrink-0 py-2 px-4 border border-hairline text-label rounded-sm hover:bg-raised transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line-medium)] bg-[var(--surface-raised)] px-4 py-2 text-[13px] font-semibold text-[var(--ink-primary)] transition hover:bg-[var(--surface-overlay)]"
             >
-              Export frame for forensics
+              Export frame
+            </button>
+            <button
+              type="button"
+              onClick={() => void toggleFullscreen()}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line-medium)] bg-[var(--surface-raised)] px-4 py-2 text-[13px] font-semibold text-[var(--ink-primary)] transition hover:bg-[var(--surface-overlay)]"
+            >
+              {isFullscreen ? "Exit" : "Full screen"}
             </button>
           </div>
         </div>
 
-        <div className="text-[11px] text-slate font-mono flex flex-wrap gap-x-6 gap-y-1">
-          <span>← → move between rooms</span>
-          <span>Room 1: Lift bug (collision freeze)</span>
-          <span>Room 2: Audio dropout</span>
-          <span>Room 3: Drone swarm (FPS drop)</span>
-        </div>
+        {!isFullscreen && (
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-[11px] text-[var(--ink-tertiary)]">
+            <span>← → rooms</span>
+            <span>Room 1: Lift freeze</span>
+            <span>Room 2: Audio dropout</span>
+            <span>Room 3: Drone swarm</span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -330,10 +330,10 @@ export default function RegisterPage() {
                       {fieldErrors.studioName}
                     </p>
                   )}
-                  <div className="mt-3 flex items-center justify-between border-t border-[var(--line-subtle)] pt-3 text-[12px] text-[var(--ink-secondary)]">
-                    <span>Studio link</span>
-                    <span className="font-mono text-[var(--accent-text)]">
-                      repro.dev/@{studioSlug}
+                  <div className="pt-3 flex items-center justify-between font-mono text-[12px] text-[var(--ink-secondary)]">
+                    <span>Studio link preview</span>
+                    <span className="text-[var(--accent-text)]">
+                      @{studioSlug}
                     </span>
                   </div>
                 </div>

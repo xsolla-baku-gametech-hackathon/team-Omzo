@@ -253,6 +253,14 @@ function stopAudio(): void {
 
 // ── Bug triggers ─────────────────────────────────────────────────────
 
+/**
+ * Planted demo faults must land in the console proxy (for report triage)
+ * without inflating Next.js DevTools "Issues" from console.error.
+ */
+function plantBug(message: string): void {
+  console.warn(`[demo-bug] ${message}`);
+}
+
 function checkLiftCollision(): void {
   if (currentRoom !== 0) return;
   const floorY = H * 0.72;
@@ -268,10 +276,10 @@ function checkLiftCollision(): void {
     if (!liftFrozen) {
       liftFrozen = true;
       liftFreezeTimer = 180; // ~3 seconds at 60fps
-      console.error(
+      plantBug(
         "Uncaught TypeError: cannot read 'mesh' of null at Lift.tick (lift.js:42)",
       );
-      console.error("entity ent_7f3a detached from scene graph");
+      plantBug("entity ent_7f3a detached from scene graph");
     }
   }
 }
@@ -280,8 +288,8 @@ function checkAudioBug(): void {
   // BUG 2: Audio drops out in the server room.
   if (currentRoom === 1 && audioPlaying) {
     stopAudio();
-    console.error("Failed to decode audio buffer (channel 2)");
-    console.error("Assertion failed: mixer.channels > 0");
+    plantBug("Failed to decode audio buffer (channel 2)");
+    plantBug("Assertion failed: mixer.channels > 0");
   }
   if (currentRoom !== 1 && !audioPlaying) {
     // Audio stays dead even after leaving — realistic bug behavior.
@@ -335,7 +343,7 @@ function updateDrones(): void {
       );
     }
     if (drones.length > 50 && Math.random() < 0.05) {
-      console.error(
+      plantBug(
         `Failed to allocate instance buffer, falling back (${drones.length} draws)`,
       );
     }
