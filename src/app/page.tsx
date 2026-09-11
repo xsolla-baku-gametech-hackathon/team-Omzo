@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { CollapseFigure } from "@/components/stage/CollapseFigure";
 import { EyebrowPill } from "@/components/stage/EyebrowPill";
+import { StageHeader } from "@/components/stage/StageHeader";
 import { StageSection } from "@/components/stage/StageSection";
 import { getLandingStats } from "@/server/services/landingStats";
 
@@ -102,33 +103,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-[var(--surface-page)] font-sans text-[var(--ink-primary)]">
-      <header className="sticky top-0 z-30 h-[var(--console-topbar-h)] border-b border-[var(--line-subtle)] bg-[var(--surface-page)]/85 backdrop-blur">
-        <div className="mx-auto flex h-full max-w-[var(--stage-container)] items-center justify-between px-[var(--space-6)]">
-          <span className="text-[length:var(--type-ui-size)] font-semibold tracking-[var(--type-heading-ls)]">
-            Repro
-          </span>
-          <nav className="flex items-center gap-[var(--space-6)] text-[length:var(--type-meta-size)]">
-            <Link
-              href="/play"
-              className="text-[var(--ink-secondary)] transition-colors hover:text-[var(--ink-primary)]"
-            >
-              Play
-            </Link>
-            <Link
-              href="/studio"
-              className="text-[var(--ink-secondary)] transition-colors hover:text-[var(--ink-primary)]"
-            >
-              Studio
-            </Link>
-            <Link
-              href="/login"
-              className="text-[var(--ink-secondary)] transition-colors hover:text-[var(--ink-primary)]"
-            >
-              Sign in
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <StageHeader />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden px-[var(--space-6)] pt-[var(--stage-section-y)] pb-[var(--stage-section-y)]">
@@ -337,6 +312,7 @@ export default async function Home() {
               links: [
                 ["Studio board", "/studio"],
                 ["Tester access", "/play"],
+                ["Pricing", "/pricing"],
                 ["Sign in", "/login"],
               ],
             },
