@@ -132,6 +132,37 @@ export function validateNameParts(
   return validateLegalName(`${first} ${last}`);
 }
 
+export interface ContactHandleResult {
+  readonly valid: boolean;
+  readonly reason?: string;
+}
+
+const CONTACT_HANDLE_REGEX = /^[A-Za-z0-9._]+$/;
+
+/**
+ * Validates a Discord or Telegram handle: 2–32 characters after an
+ * optional leading "@", letters/digits/dot/underscore only.
+ */
+export function validateContactHandle(raw: string): ContactHandleResult {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { valid: false, reason: "A Discord or Telegram handle is required." };
+  }
+
+  const handle = trimmed.startsWith("@") ? trimmed.slice(1) : trimmed;
+  if (handle.length < 2 || handle.length > 32) {
+    return { valid: false, reason: "Handle must be 2–32 characters." };
+  }
+  if (!CONTACT_HANDLE_REGEX.test(handle)) {
+    return {
+      valid: false,
+      reason: "Handle can only contain letters, digits, dots, and underscores.",
+    };
+  }
+
+  return { valid: true };
+}
+
 /**
  * Requires a parseable birth date and age >= minAge.
  */

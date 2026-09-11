@@ -5,6 +5,7 @@ import {
   maxBirthDateForAdult,
   parseBirthDateInput,
   validateAdultAge,
+  validateContactHandle,
   validateLegalName,
   validateNameParts,
 } from "@/domain/access/identityRules";
@@ -54,6 +55,29 @@ describe("identityRules", () => {
 
     it("exposes a max date that is exactly 18 years ago", () => {
       expect(maxBirthDateForAdult(new Date("2026-09-11"))).toBe("2008-09-11");
+    });
+  });
+
+  describe("validateContactHandle", () => {
+    it("requires a non-empty handle", () => {
+      expect(validateContactHandle("").valid).toBe(false);
+      expect(validateContactHandle("   ").valid).toBe(false);
+    });
+
+    it("accepts a plain or @-prefixed handle within range", () => {
+      expect(validateContactHandle("alex_chen").valid).toBe(true);
+      expect(validateContactHandle("@alex.chen99").valid).toBe(true);
+    });
+
+    it("rejects handles that are too short or too long", () => {
+      expect(validateContactHandle("a").valid).toBe(false);
+      expect(validateContactHandle("a".repeat(33)).valid).toBe(false);
+      expect(validateContactHandle("a".repeat(32)).valid).toBe(true);
+    });
+
+    it("rejects spaces and symbols other than dot/underscore", () => {
+      expect(validateContactHandle("alex chen").valid).toBe(false);
+      expect(validateContactHandle("alex#1234").valid).toBe(false);
     });
   });
 });
