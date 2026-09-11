@@ -1,5 +1,10 @@
 import { compare, hash } from "bcryptjs";
 
+import {
+  validateAdultAge,
+  validateLegalName,
+} from "@/domain/access/identityRules";
+import { validatePasswordStrength } from "@/domain/access/passwordRules";
 import { db } from "@/server/db";
 import type { SessionPayload } from "@/server/session";
 
@@ -10,7 +15,8 @@ import type { SessionPayload } from "@/server/session";
  * - bcrypt cost 12
  * - Role is self-selected at register (TESTER or STUDIO)
  * - STUDIO registration creates the Studio in the same transaction
- * - birthDate collected at register
+ * - birthDate required at register; must be 18+
+ * - displayName must be a full legal first + last name
  */
 
 const BCRYPT_COST = 12;
@@ -20,7 +26,7 @@ export interface RegisterInput {
   readonly password: string;
   readonly displayName: string;
   readonly role: "TESTER" | "STUDIO";
-  readonly birthDate?: Date;
+  readonly birthDate: Date;
   readonly studioName?: string;
 }
 
@@ -43,8 +49,6 @@ export class InvalidCredentialsError extends Error {
   }
 }
 
-import { validatePasswordStrength } from "@/domain/access/passwordRules";
-
 export class WeakPasswordError extends Error {
   constructor(readonly reasons: readonly string[]) {
     super(reasons.join(" ") || "Password does not meet security requirements.");
@@ -59,10 +63,25 @@ export class StudioNameRequiredError extends Error {
   }
 }
 
+export class InvalidDisplayNameError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidDisplayNameError";
+  }
+}
+
+export class UnderageRegistrationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnderageRegistrationError";
+  }
+}
+
 export async function registerUser(
   input: RegisterInput,
 ): Promise<SessionPayload> {
   const normalizedEmail = input.email.trim().toLowerCase();
+  const displayName = input.displayName.trim();
 
   const existing = await db.user.findUnique({
     where: { email: normalizedEmail },
@@ -77,6 +96,20 @@ export async function registerUser(
     throw new StudioNameRequiredError();
   }
 
+  const nameCheck = validateLegalName(displayName);
+  if (!nameCheck.valid) {
+    throw new InvalidDisplayNameError(
+      nameCheck.reason ?? "Enter both your first and last name.",
+    );
+  }
+
+  const ageCheck = validateAdultAge(input.birthDate);
+  if (!ageCheck.valid) {
+    throw new UnderageRegistrationError(
+      ageCheck.reason ?? "You must be at least 18 years old to create an account.",
+    );
+  }
+
   const strength = validatePasswordStrength(input.password);
   if (!strength.isValid) {
     throw new WeakPasswordError(strength.errors);
@@ -89,9 +122,9 @@ export async function registerUser(
       data: {
         email: normalizedEmail,
         passwordHash,
-        displayName: input.displayName.trim(),
+        displayName,
         role: input.role,
-        birthDate: input.birthDate ?? null,
+        birthDate: input.birthDate,
       },
     });
 
