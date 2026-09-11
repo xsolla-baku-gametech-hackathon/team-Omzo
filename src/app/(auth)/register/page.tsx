@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import {
@@ -23,7 +22,6 @@ type FieldErrors = {
 };
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [role, setRole] = useState<Role>("TESTER");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -128,12 +126,12 @@ export default function RegisterPage() {
         throw new Error(data.message || "Failed to create account.");
       }
 
-      if (data.user.role === "STUDIO") {
-        router.push("/studio");
-      } else {
-        router.push("/play");
-      }
-      router.refresh();
+      // A hard navigation, not router.push: the session cookie just changed,
+      // and a client-side transition can hit a stale chunk for a route the
+      // browser hadn't loaded yet, leaving the user stuck on this form with
+      // no visible error. A full navigation always fetches the current build.
+      window.location.href = data.user.role === "STUDIO" ? "/studio" : "/play";
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed.");
     } finally {
