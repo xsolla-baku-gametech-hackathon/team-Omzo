@@ -142,3 +142,90 @@ export const DELIVERY_MODE_CAVEAT: Record<DeliveryMode, string> = {
 
 /** The recommended default for a new campaign. */
 export const DEFAULT_BUILD_KIND: BuildKind = "EXTERNAL_LINK";
+
+// ── Build URL safety ─────────────────────────────────────────────────
+
+/**
+ * Whether a build URL is safe to send a tester to.
+ *
+ * The URL is studio-controlled text that becomes a redirect target on our own
+ * origin, which makes it two things at once: an open-redirect vector pointing
+ * a trusted domain at anywhere, and — for the `javascript:` and `data:`
+ * schemes — script execution if it is ever handed to an anchor or
+ * `location.assign`. Validating it at the edge of the domain layer means the
+ * campaign form, the API and the redirect route all agree on one answer.
+ */
+export type BuildUrlVerdict =
+  | { readonly safe: true; readonly scope: "internal" | "external" }
+  | { readonly safe: false; readonly reason: string };
+
+function isLoopback(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    hostname === "::1"
+  );
+}
+
+export function classifyBuildUrl(raw: string): BuildUrlVerdict {
+  const value = raw.trim();
+
+  if (value.length === 0) {
+    return { safe: false, reason: "A build URL is required." };
+  }
+
+  // "//evil.example" and "/\evil.example" look like paths to a naive check
+  // and like another origin to a browser. That gap is the whole trick.
+  if (value.startsWith("//") || value.startsWith("/\\")) {
+    return {
+      safe: false,
+      reason:
+        "A protocol-relative URL points at another site. Write the full https:// address instead.",
+    };
+  }
+
+  if (value.startsWith("/")) {
+    return { safe: true, scope: "internal" };
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return {
+      safe: false,
+      reason:
+        "That is not a valid URL. Use a full https:// address, or a path beginning with /.",
+    };
+  }
+
+  if (parsed.protocol === "https:") {
+    return { safe: true, scope: "external" };
+  }
+
+  // Plain http is allowed only against a local machine, so a developer can
+  // point at their own dev server without the rule being waivable in
+  // production, where it would send an access-gated build over the wire in
+  // the clear.
+  if (parsed.protocol === "http:" && isLoopback(parsed.hostname)) {
+    return { safe: true, scope: "external" };
+  }
+
+  if (parsed.protocol === "http:") {
+    return {
+      safe: false,
+      reason:
+        "Builds must be served over https. A plain http link exposes an access-gated build in transit.",
+    };
+  }
+
+  return {
+    safe: false,
+    reason: `The ${parsed.protocol} scheme cannot be opened safely. Use a full https:// address.`,
+  };
+}
+
+export function isSafeBuildUrl(raw: string): boolean {
+  return classifyBuildUrl(raw).safe;
+}

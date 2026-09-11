@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { classifyBuildUrl } from "@/domain/campaigns/delivery";
+
 import {
   CampaignNotFoundError,
   UnauthorizedCampaignAccessError,
@@ -11,12 +13,30 @@ import {
 } from "@/server/services/campaignService";
 import { getSession } from "@/server/session";
 
+/**
+ * A studio-supplied build URL becomes a redirect target on our own origin, so
+ * it is validated before it is ever stored rather than at the moment it is
+ * followed. An edit is as capable of introducing a javascript: URL as a
+ * create, so the same rule applies on both paths.
+ */
+const buildUrlSchema = z
+  .string()
+  .trim()
+  .min(1, "Build URL is required")
+  .max(500)
+  .superRefine((value, ctx) => {
+    const verdict = classifyBuildUrl(value);
+    if (!verdict.safe) {
+      ctx.addIssue({ code: "custom", message: verdict.reason });
+    }
+  });
+
 const updateSchema = z.object({
   title: z.string().min(2).max(120).optional(),
   pitch: z.string().min(10).max(1000).optional(),
   testFocus: z.string().min(10).max(1000).optional(),
   buildKind: z.enum(["WEB_EMBED", "DOWNLOAD", "EXTERNAL_LINK"]).optional(),
-  buildUrl: z.string().min(1).max(500).optional(),
+  buildUrl: buildUrlSchema.optional(),
   ndaBodyMd: z.string().min(20).max(10000).optional(),
   maxTesters: z.number().int().positive().optional(),
   status: z.enum(["DRAFT", "OPEN", "CLOSED"]).optional(),

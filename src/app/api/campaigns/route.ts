@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { classifyBuildUrl } from "@/domain/campaigns/delivery";
+
 import {
   createCampaign,
   getOpenCampaigns,
@@ -8,12 +10,34 @@ import {
 } from "@/server/services/campaignService";
 import { getSession } from "@/server/session";
 
+/**
+ * A studio-supplied build URL becomes a redirect target on our own origin, so
+ * it is validated before it is ever stored rather than at the moment it is
+ * followed. Rejecting it here means no row can exist that the redirect route
+ * would have to refuse later.
+ */
+const buildUrlSchema = z
+  .string()
+  .trim()
+  .min(1, "Build URL is required")
+  .max(500)
+  .superRefine((value, ctx) => {
+    const verdict = classifyBuildUrl(value);
+    if (!verdict.safe) {
+      ctx.addIssue({ code: "custom", message: verdict.reason });
+    }
+  });
+
 const createCampaignSchema = z.object({
-  title: z.string().trim().min(2, "Title must be at least 2 characters").max(120),
+  title: z
+    .string()
+    .trim()
+    .min(2, "Title must be at least 2 characters")
+    .max(120),
   pitch: z.string().trim().min(1, "Pitch cannot be empty").max(1000),
   testFocus: z.string().trim().min(1, "Test focus cannot be empty").max(1000),
   buildKind: z.enum(["WEB_EMBED", "DOWNLOAD", "EXTERNAL_LINK"]),
-  buildUrl: z.string().trim().min(1, "Build URL is required").max(500),
+  buildUrl: buildUrlSchema,
   ndaBodyMd: z.string().trim().min(1, "NDA text is required").max(10000),
   maxTesters: z.coerce.number().int().positive().default(200),
   rewardPoolTotal: z.coerce.number().int().nonnegative().default(0),

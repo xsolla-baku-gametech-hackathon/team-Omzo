@@ -8,7 +8,9 @@ import {
   DELIVERY_MODE_CAVEAT,
   DELIVERY_MODE_LABEL,
   capabilitiesOf,
+  classifyBuildUrl,
   deliveryModeOf,
+  isSafeBuildUrl,
   type BuildKind,
 } from "@/domain/campaigns/delivery";
 
@@ -88,5 +90,57 @@ describe("delivery mode", () => {
   it("defaults to the mode where the binary never reaches us", () => {
     expect(DEFAULT_BUILD_KIND).toBe("EXTERNAL_LINK" satisfies BuildKind);
     expect(deliveryModeOf(DEFAULT_BUILD_KIND)).toBe("LINK_ONLY");
+  });
+});
+
+describe("build URL safety", () => {
+  it("accepts an https address and an internal path", () => {
+    expect(classifyBuildUrl("https://itch.io/queue/abc")).toEqual({
+      safe: true,
+      scope: "external",
+    });
+    expect(classifyBuildUrl("/play/seed-campaign/session")).toEqual({
+      safe: true,
+      scope: "internal",
+    });
+    // Leading and trailing whitespace is a paste artefact, not a decision.
+    expect(isSafeBuildUrl("  https://example.com/build  ")).toBe(true);
+  });
+
+  it("refuses script-bearing schemes", () => {
+    // These only matter because the value reaches an anchor or a redirect.
+    for (const url of [
+      "javascript:alert(1)",
+      "JavaScript:alert(1)",
+      "data:text/html;base64,PHNjcmlwdD4=",
+      "vbscript:msgbox(1)",
+      "file:///etc/passwd",
+    ]) {
+      expect(isSafeBuildUrl(url)).toBe(false);
+    }
+  });
+
+  it("refuses protocol-relative URLs that read as paths", () => {
+    // The exact bypass a startsWith("/") check would wave through.
+    expect(isSafeBuildUrl("//evil.example/build")).toBe(false);
+    expect(isSafeBuildUrl("/\\evil.example/build")).toBe(false);
+  });
+
+  it("refuses plain http except against a local machine", () => {
+    expect(isSafeBuildUrl("http://example.com/build")).toBe(false);
+    // A developer pointing at their own dev server, without the rule being
+    // waivable anywhere it would put a gated build on the wire in the clear.
+    expect(isSafeBuildUrl("http://localhost:3000/build")).toBe(true);
+    expect(isSafeBuildUrl("http://127.0.0.1:8080/build")).toBe(true);
+  });
+
+  it("refuses empty and unparseable values with a reason a studio can act on", () => {
+    const empty = classifyBuildUrl("   ");
+    expect(empty.safe).toBe(false);
+    const broken = classifyBuildUrl("not a url at all");
+    expect(broken.safe).toBe(false);
+    if (!broken.safe) {
+      expect(broken.reason).toMatch(/https/);
+    }
   });
 });
