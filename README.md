@@ -119,6 +119,49 @@ IDF tables and cluster centroids are rebuilt entirely in memory on every ingest 
 - **Data Minimization**: `birthDate` is checked in memory during NDA verification and never surfaced on public dashboards.
 - **Virtual Claim Tokens**: Bounty rewards ("coins") are fictional claim tokens redeemable for in-game studio perks (alpha keys, credits mentions, cosmetics). They have no monetary exchange mechanism.
 
+## Business Model
+
+Repro sells to game studios: B2B SaaS, metered on the **active tester** —
+someone who took a build in the billing period.
+
+That metric tracks both things the product is for. Every active tester is one
+watermark identity and one signed NDA record, so they are the leak surface;
+and report volume, which is what triage saves a developer from reading, scales
+with them roughly linearly. Developers on the studio's own team are unlimited
+on every tier, because the value does not move with how many of them there are.
+
+| Plan        | Price          | Active testers         | Reports      | For                                      |
+| ----------- | -------------- | ---------------------- | ------------ | ---------------------------------------- |
+| Playtest    | Free           | 25 / mo                | 2,000 / mo   | One campaign, evaluating the engine      |
+| Studio      | $290 / mo      | 250 / mo, then $1.20   | 50,000 / mo  | A studio running closed betas on a cycle |
+| Publisher   | $1,200 / mo    | 2,500 / mo, then $0.60 | 500,000 / mo | Multiple titles, SSO, audit export, SLA  |
+| Self-hosted | Annual licence | Unlimited              | Unlimited    | Builds that cannot leave your network    |
+
+Annual billing is ten months for twelve on Studio and Publisher. Going over an
+allowance bills at the plan rate — it never blocks a playtest in progress,
+because a dropped bug report is a worse outcome than a late invoice.
+Watermarking ships on the free tier: it is the central promise, and a crippled
+version would teach an evaluating studio the wrong thing about what they are
+looking at.
+
+### Models that were dropped first
+
+- **Per developer seat.** The value does not move with it. A three-person team
+  gets the same 400-reports-into-12-issues collapse as a fifty-person team from
+  the same playtest, so seats would charge the studios getting the least the
+  same as the studios getting the most.
+- **Per report.** That charges for the behaviour the engine wants more of —
+  clustering improves with volume, so it would price against the mechanism.
+- **Per campaign.** Lumpy, and gamed by folding three playtests into one.
+- **A cut of the tester reward pool.** There is nothing to take a cut of. Coins
+  are claim tokens for studio-provided perks with no monetary exchange
+  mechanism, so inventing a cash flow there would contradict the product's own
+  position and drag a developer tool toward money transmission.
+
+The catalogue lives in `src/domain/billing/plans.ts` as pure, tested logic.
+`/pricing` and the studio's own `/studio/billing` panel both read from it, so
+the marketing page and the invoice cannot disagree about what a plan costs.
+
 ## API Reference
 
 Every route answers `404` rather than `403` where distinguishing the two would
@@ -169,7 +212,7 @@ the caller's bucket is empty (honour `Retry-After`).
 Repro maintains strict offline test coverage across unit, domain, and UI components:
 
 ```bash
-# Run domain and UI test suites (269 passing tests)
+# Run domain and UI test suites (305 passing tests)
 pnpm test
 
 # Run database integration tests (concurrency & idempotency against Postgres)
