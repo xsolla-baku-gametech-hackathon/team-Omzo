@@ -6,7 +6,7 @@ Repro turns raw playtest bug reports into clustered, triaged issues a developer 
 
 ## Live Demo
 
-- **Web**: [https://repro-team-omzo.vercel.app](https://repro-team-omzo.vercel.app)
+- **Web**: [https://team-omzo.vercel.app/](https://team-omzo.vercel.app/)
 
 ## Quick Start
 
